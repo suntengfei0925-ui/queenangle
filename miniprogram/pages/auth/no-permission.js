@@ -7,9 +7,14 @@ Page({
 
   onLoad() {
     const app = getApp();
+    const openid = app.globalData.auth.openid || "";
     this.setData({
-      openid: app.globalData.auth.openid || ""
+      openid
     });
+
+    if (!openid) {
+      this.checkAgain();
+    }
   },
 
   checkAgain() {
@@ -22,6 +27,26 @@ Page({
         }
       })
       .catch(api.showError);
+  },
+
+  copyOpenid() {
+    if (!this.data.openid) {
+      wx.showToast({
+        title: "暂无 openid",
+        icon: "none"
+      });
+      return;
+    }
+
+    wx.setClipboardData({
+      data: this.data.openid,
+      success() {
+        wx.showToast({
+          title: "已复制 openid",
+          icon: "success"
+        });
+      }
+    });
   }
 });
 
