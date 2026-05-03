@@ -1,0 +1,30 @@
+<view class="page">
+  <view class="panel form">
+    <view class="field">
+      <view class="label">消费项目</view>
+      <picker mode="selector" range="{{services}}" range-key="name" bindchange="onServiceChange">
+        <view class="picker">{{selectedService.name || "请选择服务项目"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">原价</view>
+      <input class="input" value="{{form.originalAmountYuan}}" data-field="originalAmountYuan" bindinput="onInput" type="digit" placeholder="单位：元" />
+    </view>
+    <view class="field">
+      <view class="label">实际收款金额</view>
+      <input class="input" value="{{form.actualReceivedYuan}}" data-field="actualReceivedYuan" bindinput="onInput" type="digit" placeholder="单位：元" />
+    </view>
+    <view class="field">
+      <view class="label">支付方式</view>
+      <picker mode="selector" range="{{paymentMethods}}" range-key="label" bindchange="onPaymentChange">
+        <view class="picker">{{selectedPayment.label || "请选择支付方式"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <textarea class="textarea" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <button class="primary" bindtap="submit">保存记录</button>
+  </view>
+</view>
+

@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+miniprogram_npm/
+
+# WeChat DevTools local files
+.idea/
+.vscode/
+.DS_Store
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build and temporary outputs
+dist/
+build/
+coverage/
+.temp/
+.tmp/
+
+# CloudBase local env files
+.env
+.env.*
+
+# OS files
+Thumbs.db
+desktop.ini

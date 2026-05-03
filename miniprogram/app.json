@@ -1,0 +1,53 @@
+{
+  "pages": [
+    "pages/home/index",
+    "pages/entry/index",
+    "pages/members/index",
+    "pages/settings/index",
+    "pages/auth/no-permission",
+    "pages/guest-consumption/index",
+    "pages/member-consumption/index",
+    "pages/member-recharge/index",
+    "pages/card-purchase/index",
+    "pages/card-use/index",
+    "pages/member-detail/index",
+    "pages/member-edit/index",
+    "pages/settings/services/index",
+    "pages/settings/recharge-tiers/index",
+    "pages/settings/card-types/index",
+    "pages/record-detail/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "美甲店记账",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f7f9"
+  },
+  "tabBar": {
+    "color": "#6b7280",
+    "selectedColor": "#111827",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/entry/index",
+        "text": "记一笔"
+      },
+      {
+        "pagePath": "pages/members/index",
+        "text": "会员"
+      },
+      {
+        "pagePath": "pages/settings/index",
+        "text": "设置"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
+

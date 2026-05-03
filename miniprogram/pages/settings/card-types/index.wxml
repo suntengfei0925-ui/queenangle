@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="section panel form">
+    <view class="sub-title">{{form.id ? "编辑次卡类型" : "新增次卡类型"}}</view>
+    <view class="field">
+      <view class="label">次卡名称</view>
+      <input class="input" value="{{form.name}}" data-field="name" bindinput="onInput" placeholder="例如 手部护理 10 次卡" />
+    </view>
+    <view class="field">
+      <view class="label">默认次数</view>
+      <input class="input" value="{{form.totalTimes}}" data-field="totalTimes" bindinput="onInput" type="number" placeholder="例如 10" />
+    </view>
+    <view class="field">
+      <view class="label">参考价格</view>
+      <input class="input" value="{{form.priceYuan}}" data-field="priceYuan" bindinput="onInput" type="digit" placeholder="单位：元" />
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <input class="input" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <view class="button-row">
+      <button class="primary" bindtap="save">保存</button>
+      <button class="secondary" bindtap="resetForm">清空</button>
+    </view>
+  </view>
+
+  <view class="list">
+    <view class="list-item" wx:for="{{cardTypes}}" wx:key="_id">
+      <view class="row">
+        <view>
+          <view class="sub-title">{{item.name}}</view>
+          <view class="muted">{{item.totalTimes}} 次，¥{{item.priceYuan}}</view>
+        </view>
+        <view class="tag {{item.enabled ? '' : 'gray'}}">{{item.enabled ? "启用" : "停用"}}</view>
+      </view>
+      <view wx:if="{{item.remark}}" class="muted">{{item.remark}}</view>
+      <view class="button-row">
+        <button class="secondary" size="mini" bindtap="edit" data-id="{{item._id}}">编辑</button>
+        <button class="secondary" size="mini" bindtap="toggle" data-id="{{item._id}}" data-enabled="{{!item.enabled}}">{{item.enabled ? "停用" : "启用"}}</button>
+      </view>
+    </view>
+  </view>
+</view>
+

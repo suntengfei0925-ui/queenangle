@@ -1,0 +1,45 @@
+<view class="page">
+  <view class="section panel stack">
+    <view class="title">记一笔</view>
+    <view class="muted">选择本次业务类型</view>
+  </view>
+
+  <view class="list">
+    <view class="list-item row" bindtap="goPage" data-url="/pages/guest-consumption/index">
+      <view>
+        <view class="sub-title">散客消费</view>
+        <view class="muted">不绑定会员，只记录实收和支付方式</view>
+      </view>
+      <view>进入</view>
+    </view>
+    <view class="list-item row" bindtap="goPage" data-url="/pages/member-recharge/index">
+      <view>
+        <view class="sub-title">会员充值</view>
+        <view class="muted">增加余额并按档位更新折扣</view>
+      </view>
+      <view>进入</view>
+    </view>
+    <view class="list-item row" bindtap="goPage" data-url="/pages/member-consumption/index">
+      <view>
+        <view class="sub-title">会员消费</view>
+        <view class="muted">自动计算折扣、余额支付和补差价</view>
+      </view>
+      <view>进入</view>
+    </view>
+    <view class="list-item row" bindtap="goPage" data-url="/pages/card-purchase/index">
+      <view>
+        <view class="sub-title">次卡购买</view>
+        <view class="muted">增加会员名下次卡次数</view>
+      </view>
+      <view>进入</view>
+    </view>
+    <view class="list-item row" bindtap="goPage" data-url="/pages/card-use/index">
+      <view>
+        <view class="sub-title">次卡核销</view>
+        <view class="muted">扣减会员次卡剩余次数</view>
+      </view>
+      <view>进入</view>
+    </view>
+  </view>
+</view>
+

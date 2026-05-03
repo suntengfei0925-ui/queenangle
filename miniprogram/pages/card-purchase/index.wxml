@@ -1,0 +1,36 @@
+<view class="page">
+  <view class="panel form">
+    <view class="field">
+      <view class="label">会员</view>
+      <picker mode="selector" range="{{members}}" range-key="displayName" bindchange="onMemberChange">
+        <view class="picker">{{selectedMember.displayName || "请选择会员"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">次卡类型</view>
+      <picker mode="selector" range="{{cardTypes}}" range-key="displayName" bindchange="onCardTypeChange">
+        <view class="picker">{{selectedCardType.displayName || "请选择次卡类型"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">购买次数</view>
+      <input class="input" value="{{form.purchaseTimes}}" data-field="purchaseTimes" bindinput="onInput" type="number" />
+    </view>
+    <view class="field">
+      <view class="label">实收金额</view>
+      <input class="input" value="{{form.actualReceivedYuan}}" data-field="actualReceivedYuan" bindinput="onInput" type="digit" placeholder="单位：元" />
+    </view>
+    <view class="field">
+      <view class="label">支付方式</view>
+      <picker mode="selector" range="{{paymentMethods}}" range-key="label" bindchange="onPaymentChange">
+        <view class="picker">{{selectedPayment.label || "请选择支付方式"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <textarea class="textarea" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <button class="primary" bindtap="submit">保存记录</button>
+  </view>
+</view>
+

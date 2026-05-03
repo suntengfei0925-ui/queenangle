@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="section panel stack">
+    <view class="row">
+      <view class="title">{{record.typeText}}</view>
+      <view class="tag {{record.status === 'void' ? 'red' : 'gray'}}">{{record.statusText}}</view>
+    </view>
+    <view class="muted">{{record.timeText}}</view>
+    <view wx:if="{{record.status === 'void'}}" class="danger">作废原因：{{record.voidReason || "-"}}</view>
+  </view>
+
+  <view class="section panel stack">
+    <view wx:for="{{rows}}" wx:key="label" class="row">
+      <view class="muted">{{item.label}}</view>
+      <view>{{item.value}}</view>
+    </view>
+  </view>
+
+  <view wx:if="{{record.remark}}" class="section panel stack">
+    <view class="sub-title">备注</view>
+    <view>{{record.remark}}</view>
+  </view>
+
+  <view wx:if="{{record.status === 'active'}}" class="button-row">
+    <button class="danger-btn" bindtap="voidRecord">作废记录</button>
+  </view>
+</view>
+

@@ -1,0 +1,31 @@
+<view class="page">
+  <view class="section panel stack">
+    <view class="title">设置</view>
+    <view class="muted">维护记账时会用到的基础资料</view>
+  </view>
+
+  <view class="list">
+    <view class="list-item row" bindtap="goPage" data-url="/pages/settings/services/index">
+      <view>
+        <view class="sub-title">服务项目</view>
+        <view class="muted">项目名称、标准价格、启用状态</view>
+      </view>
+      <view>进入</view>
+    </view>
+    <view class="list-item row" bindtap="goPage" data-url="/pages/settings/recharge-tiers/index">
+      <view>
+        <view class="sub-title">充值档位</view>
+        <view class="muted">充值金额和对应折扣</view>
+      </view>
+      <view>进入</view>
+    </view>
+    <view class="list-item row" bindtap="goPage" data-url="/pages/settings/card-types/index">
+      <view>
+        <view class="sub-title">次卡类型</view>
+        <view class="muted">次卡名称、默认次数、参考价格</view>
+      </view>
+      <view>进入</view>
+    </view>
+  </view>
+</view>
+

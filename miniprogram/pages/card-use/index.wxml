@@ -1,0 +1,26 @@
+<view class="page">
+  <view class="panel form">
+    <view class="field">
+      <view class="label">会员</view>
+      <picker mode="selector" range="{{members}}" range-key="displayName" bindchange="onMemberChange">
+        <view class="picker">{{selectedMember.displayName || "请选择会员"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">次卡</view>
+      <picker mode="selector" range="{{memberCards}}" range-key="displayName" bindchange="onCardChange">
+        <view class="picker">{{selectedCard.displayName || "请选择次卡"}}</view>
+      </picker>
+    </view>
+    <view class="field">
+      <view class="label">核销次数</view>
+      <input class="input" value="{{form.useTimes}}" data-field="useTimes" bindinput="onInput" type="number" />
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <textarea class="textarea" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <button class="primary" bindtap="submit">保存记录</button>
+  </view>
+</view>
+

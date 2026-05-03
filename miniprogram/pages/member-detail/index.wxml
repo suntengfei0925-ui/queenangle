@@ -1,0 +1,50 @@
+<view class="page">
+  <view class="section panel stack">
+    <view class="row">
+      <view>
+        <view class="title">{{member.name}}</view>
+        <view class="muted">{{member.phone}}</view>
+      </view>
+      <button class="secondary" size="mini" bindtap="editMember">编辑</button>
+    </view>
+    <view class="row">
+      <view>
+        <view class="muted">当前余额</view>
+        <view class="money title">¥{{member.balanceYuan}}</view>
+      </view>
+      <view>
+        <view class="muted">当前折扣</view>
+        <view class="tag">{{member.discountText}}</view>
+      </view>
+    </view>
+    <view wx:if="{{member.remark}}" class="muted">{{member.remark}}</view>
+  </view>
+
+  <view class="section panel stack">
+    <view class="sub-title">次卡</view>
+    <view wx:if="{{cards.length === 0}}" class="muted">暂无次卡</view>
+    <view wx:for="{{cards}}" wx:key="cardTypeId" class="row">
+      <view>{{item.cardName}}</view>
+      <view class="money">{{item.remainingTimes}} 次</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="sub-title section">历史记录</view>
+    <view wx:if="{{records.length === 0}}" class="empty">暂无记录</view>
+    <view class="list" wx:else>
+      <view class="list-item" wx:for="{{records}}" wx:key="_id" bindtap="goRecord" data-id="{{item._id}}">
+        <view class="row">
+          <view class="sub-title">{{item.typeText}}</view>
+          <view class="tag {{item.status === 'void' ? 'red' : 'gray'}}">{{item.statusText}}</view>
+        </view>
+        <view class="muted">{{item.timeText}}</view>
+        <view class="row">
+          <view class="money">实收 ¥{{item.actualReceivedYuan}}</view>
+          <view class="muted">{{item.nameLine}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
+

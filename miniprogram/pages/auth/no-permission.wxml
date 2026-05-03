@@ -1,0 +1,13 @@
+<view class="page">
+  <view class="panel stack">
+    <view class="title">无权限访问</view>
+    <view class="muted">当前微信用户不在老板 openid 白名单中，不能查看业务数据。</view>
+    <view class="muted">请在云数据库 owner_whitelist 集合中添加当前 openid。</view>
+    <view class="panel">
+      <view class="label">当前 openid</view>
+      <view>{{openid || "-"}}</view>
+    </view>
+    <button class="primary" bindtap="checkAgain">重新检查</button>
+  </view>
+</view>
+
