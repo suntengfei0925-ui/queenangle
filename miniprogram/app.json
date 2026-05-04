@@ -1,9 +1,9 @@
 {
   "pages": [
-    "pages/home/index",
     "pages/entry/index",
     "pages/members/index",
     "pages/settings/index",
+    "pages/home/index",
     "pages/auth/no-permission",
     "pages/guest-consumption/index",
     "pages/member-consumption/index",
@@ -30,10 +30,6 @@
     "borderStyle": "black",
     "list": [
       {
-        "pagePath": "pages/home/index",
-        "text": "首页"
-      },
-      {
         "pagePath": "pages/entry/index",
         "text": "记一笔"
       },
@@ -44,6 +40,10 @@
       {
         "pagePath": "pages/settings/index",
         "text": "设置"
+      },
+      {
+        "pagePath": "pages/home/index",
+        "text": "账本"
       }
     ]
   },

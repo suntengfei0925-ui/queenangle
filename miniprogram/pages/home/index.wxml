@@ -5,30 +5,32 @@
         <view class="title">今日流水</view>
         <view class="muted">{{businessDate}}</view>
       </view>
-      <button class="secondary" size="mini" bindtap="loadData">刷新</button>
+      <button class="secondary summary-toggle" size="mini" bindtap="toggleSummary">{{summaryExpanded ? '折叠' : '展开'}}</button>
     </view>
-    <view class="row">
-      <view>
-        <view class="muted">今日实收</view>
-        <view class="money title">¥{{summary.actualReceivedYuan}}</view>
+    <view wx:if="{{summaryExpanded}}" class="stack">
+      <view class="row">
+        <view>
+          <view class="muted">今日实收</view>
+          <view class="money title">¥{{summary.actualReceivedYuan}}</view>
+        </view>
+        <view>
+          <view class="muted">有效笔数</view>
+          <view class="money title">{{summary.activeCount}}</view>
+        </view>
       </view>
-      <view>
-        <view class="muted">有效笔数</view>
-        <view class="money title">{{summary.activeCount}}</view>
-      </view>
-    </view>
-    <view class="row">
-      <view>
-        <view class="muted">消费金额</view>
-        <view class="money">¥{{summary.consumptionYuan}}</view>
-      </view>
-      <view>
-        <view class="muted">余额支付</view>
-        <view class="money">¥{{summary.balancePayYuan}}</view>
-      </view>
-      <view>
-        <view class="muted">充值</view>
-        <view class="money">¥{{summary.rechargeYuan}}</view>
+      <view class="row">
+        <view>
+          <view class="muted">消费金额</view>
+          <view class="money">¥{{summary.consumptionYuan}}</view>
+        </view>
+        <view>
+          <view class="muted">余额支付</view>
+          <view class="money">¥{{summary.balancePayYuan}}</view>
+        </view>
+        <view>
+          <view class="muted">充值</view>
+          <view class="money">¥{{summary.rechargeYuan}}</view>
+        </view>
       </view>
     </view>
   </view>

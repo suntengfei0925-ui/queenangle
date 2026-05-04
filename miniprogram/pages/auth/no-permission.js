@@ -21,7 +21,7 @@ Page({
     api.checkAuth()
       .then((auth) => {
         if (auth.allowed) {
-          wx.switchTab({ url: "/pages/home/index" });
+          wx.switchTab({ url: "/pages/entry/index" });
         } else {
           this.setData({ openid: auth.openid || "" });
         }

@@ -16,6 +16,7 @@ function normalizeRecord(item) {
 guardedPage({
   data: {
     businessDate: "",
+    summaryExpanded: false,
     summary: {
       actualReceivedYuan: "0.00",
       consumptionYuan: "0.00",
@@ -27,10 +28,15 @@ guardedPage({
   },
 
   onLoad() {
-    this.loadData();
+    // guardedPage may skip onShow while auth is still resolving.
+    setTimeout(() => {
+      if (!this._hasShownAfterAuth) this.loadData();
+    }, 0);
   },
 
   onShow() {
+    this._hasShownAfterAuth = true;
+    this.setData({ summaryExpanded: false });
     this.loadData();
   },
 
@@ -51,6 +57,12 @@ guardedPage({
         });
       })
       .catch(api.showError);
+  },
+
+  toggleSummary() {
+    this.setData({
+      summaryExpanded: !this.data.summaryExpanded
+    });
   },
 
   goEntry() {
