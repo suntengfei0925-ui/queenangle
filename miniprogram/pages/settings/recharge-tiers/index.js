@@ -10,6 +10,7 @@ const emptyForm = {
 
 guardedPage({
   data: {
+    mode: "list",
     form: { ...emptyForm },
     tiers: []
   },
@@ -31,6 +32,13 @@ guardedPage({
       .catch(api.showError);
   },
 
+  startAdd() {
+    this.setData({
+      mode: "form",
+      form: { ...emptyForm }
+    });
+  },
+
   onInput(e) {
     this.setData({
       [`form.${e.currentTarget.dataset.field}`]: e.detail.value
@@ -45,7 +53,7 @@ guardedPage({
     })
       .then(() => {
         wx.showToast({ title: "已保存" });
-        this.resetForm();
+        this.backToList();
         this.loadData();
       })
       .catch(api.showError);
@@ -55,11 +63,19 @@ guardedPage({
     const item = this.data.tiers.find((tier) => tier._id === e.currentTarget.dataset.id);
     if (!item) return;
     this.setData({
+      mode: "form",
       form: {
         id: item._id,
         amountYuan: item.amountYuan,
         discount: String(item.discount || "")
       }
+    });
+  },
+
+  backToList() {
+    this.setData({
+      mode: "list",
+      form: { ...emptyForm }
     });
   },
 

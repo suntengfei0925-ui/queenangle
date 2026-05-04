@@ -1,5 +1,5 @@
-<view class="page">
-  <view class="section panel form">
+<view class="page settings-config-page">
+  <view wx:if="{{mode === 'form'}}" class="section panel form">
     <view class="sub-title">{{form.id ? "编辑充值档位" : "新增充值档位"}}</view>
     <view class="field">
       <view class="label">充值金额</view>
@@ -11,20 +11,29 @@
     </view>
     <view class="button-row">
       <button class="primary" bindtap="save">保存</button>
-      <button class="secondary" bindtap="resetForm">清空</button>
+      <button class="secondary" bindtap="backToList">返回</button>
     </view>
   </view>
 
-  <view class="list">
-    <view class="list-item" wx:for="{{tiers}}" wx:key="_id">
-      <view class="row">
-        <view class="sub-title">充值 ¥{{item.amountYuan}}</view>
-        <view class="tag">{{item.discountLabel}}</view>
-      </view>
-      <view class="button-row">
-        <button class="secondary" size="mini" bindtap="edit" data-id="{{item._id}}">编辑</button>
+  <block wx:else>
+    <view wx:if="{{tiers.length === 0}}" class="empty">暂无充值档位</view>
+    <view class="list" wx:else>
+      <view class="list-item" wx:for="{{tiers}}" wx:key="_id" bindtap="edit" data-id="{{item._id}}">
+        <view class="row">
+          <view>
+            <view class="sub-title">充值 ¥{{item.amountYuan}}</view>
+            <view class="muted">点击编辑</view>
+          </view>
+          <view class="tag">{{item.discountLabel}}</view>
+        </view>
+        <view class="button-row tier-actions">
+          <button class="secondary" size="mini" catchtap="edit" data-id="{{item._id}}">编辑</button>
+        </view>
       </view>
     </view>
-  </view>
+
+    <view class="fixed-action">
+      <button class="secondary add-config-btn" bindtap="startAdd">新增充值档位</button>
+    </view>
+  </block>
 </view>
-

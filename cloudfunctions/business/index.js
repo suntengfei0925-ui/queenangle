@@ -56,6 +56,33 @@ function normalizeText(value) {
   return String(value || "").trim();
 }
 
+function isCollectionNotFound(err) {
+  const message = String((err && (err.message || err.errMsg)) || "");
+  return err && (err.errCode === -502005 || message.includes("DATABASE_COLLECTION_NOT_EXIST"));
+}
+
+function isCollectionAlreadyExists(err) {
+  const message = String((err && (err.message || err.errMsg)) || "");
+  return message.includes("collection exists")
+    || message.includes("already exists")
+    || message.includes("集合已存在");
+}
+
+async function ensureCollection(name) {
+  try {
+    await db.collection(name).limit(1).get();
+    return;
+  } catch (err) {
+    if (!isCollectionNotFound(err)) throw err;
+  }
+
+  try {
+    await db.createCollection(name);
+  } catch (err) {
+    if (!isCollectionAlreadyExists(err)) throw err;
+  }
+}
+
 function normalizeDiscount(value) {
   if (value === null || value === undefined || value === "") return null;
   const num = Number(value);
@@ -234,7 +261,20 @@ async function ensureOtherService(category, context) {
     .limit(1)
     .get();
 
-  if ((res.data || []).length > 0) return res.data[0];
+  if ((res.data || []).length > 0) {
+    const existing = res.data[0];
+    if (!existing.isOther || existing.enabled === false || existing.categoryName !== category.name) {
+      await serviceCollection.doc(existing._id).update({
+        data: {
+          categoryName: category.name,
+          isOther: true,
+          enabled: true,
+          updatedAt: db.serverDate()
+        }
+      });
+    }
+    return existing;
+  }
 
   const addRes = await serviceCollection.add({
     data: {
@@ -252,11 +292,30 @@ async function ensureOtherService(category, context) {
 }
 
 async function ensureDefaultServiceCategories() {
-  const categoryRes = await db.collection(C.SERVICE_CATEGORIES).limit(1).get();
-  if ((categoryRes.data || []).length > 0) return;
+  await ensureCollection(C.SERVICE_CATEGORIES);
+  await ensureCollection(C.SERVICES);
 
   const defaults = ["美甲", "美睫"];
   for (const name of defaults) {
+    const res = await db.collection(C.SERVICE_CATEGORIES)
+      .where({ name })
+      .limit(1)
+      .get();
+    const category = (res.data || [])[0];
+
+    if (category) {
+      if (category.enabled === false) {
+        await db.collection(C.SERVICE_CATEGORIES).doc(category._id).update({
+          data: {
+            enabled: true,
+            updatedAt: db.serverDate()
+          }
+        });
+      }
+      await ensureOtherService({ _id: category._id, name });
+      continue;
+    }
+
     const addRes = await db.collection(C.SERVICE_CATEGORIES).add({
       data: {
         name,
@@ -414,6 +473,7 @@ async function listServiceCatalog(event = {}) {
 
 async function saveService(event) {
   await assertOwner();
+  await ensureDefaultServiceCategories();
   const categoryId = event.categoryId;
   const category = await getById(db.collection(C.SERVICE_CATEGORIES), categoryId, "请选择服务分类");
   const name = normalizeText(event.name);
@@ -425,8 +485,11 @@ async function saveService(event) {
   const oldService = event.id
     ? await getById(db.collection(C.SERVICES), event.id, "服务项目不存在")
     : null;
-  if (oldService && oldService.isOther && name !== "其他") {
+  if (oldService && (oldService.isOther || oldService.name === "其他") && name !== "其他") {
     throw error("VALIDATION_ERROR", "其他项目不能改名");
+  }
+  if (oldService && (oldService.isOther || oldService.name === "其他") && enabled === false) {
+    throw error("VALIDATION_ERROR", "其他项目不能停用");
   }
 
   const duplicateRes = await db.collection(C.SERVICES)
@@ -441,8 +504,8 @@ async function saveService(event) {
     categoryName: category.name,
     name,
     remark,
-    enabled,
-    isOther: oldService ? !!oldService.isOther : name === "其他",
+    enabled: oldService && (oldService.isOther || oldService.name === "其他") ? true : enabled,
+    isOther: oldService ? !!(oldService.isOther || oldService.name === "其他") : name === "其他",
     updatedAt: db.serverDate()
   };
 
@@ -462,6 +525,10 @@ async function saveService(event) {
 
 async function toggleService(event) {
   await assertOwner();
+  const service = await getById(db.collection(C.SERVICES), event.id, "服务项目不存在");
+  if ((service.isOther || service.name === "其他") && event.enabled === false) {
+    throw error("VALIDATION_ERROR", "其他项目不能停用");
+  }
   await db.collection(C.SERVICES).doc(event.id).update({
     data: {
       enabled: !!event.enabled,

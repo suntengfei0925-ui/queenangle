@@ -14,7 +14,10 @@ function callBusiness(action, data = {}) {
       if (result.code === "NO_PERMISSION") {
         wx.redirectTo({ url: "/pages/auth/no-permission" });
       }
-      throw new Error(message);
+      const err = new Error(message);
+      err.code = result.code;
+      err.result = result;
+      throw err;
     }
     return result.data;
   });
@@ -53,6 +56,7 @@ function requireAuth() {
 }
 
 function showError(err) {
+  console.error(err);
   wx.showToast({
     title: err && err.message ? err.message : "操作失败",
     icon: "none"
