@@ -9,10 +9,78 @@
       <input class="input" value="{{form.phone}}" data-field="phone" bindinput="onInput" type="number" placeholder="请输入手机号" />
     </view>
     <view class="field">
+      <view class="label">生日</view>
+      <view wx:if="{{!form.birthdayMonth}}" class="month-grid">
+        <view
+          wx:for="{{monthOptions}}"
+          wx:key="value"
+          class="choice-chip"
+          bindtap="selectBirthdayMonth"
+          data-value="{{item.value}}"
+        >{{item.label}}</view>
+      </view>
+      <view wx:else class="selected-month-row">
+        <view class="choice-chip active selected-month" bindtap="selectBirthdayMonth" data-value="{{form.birthdayMonth}}">{{form.birthdayMonth}}月</view>
+      </view>
+      <scroll-view wx:if="{{dayOptions.length > 0}}" class="day-scroll" scroll-x>
+        <view class="day-grid">
+          <view
+            wx:for="{{dayOptions}}"
+            wx:key="value"
+            class="choice-chip day-chip {{item.value === form.birthdayDay ? 'active' : ''}}"
+            bindtap="selectBirthdayDay"
+            data-value="{{item.value}}"
+          >{{item.label}}</view>
+        </view>
+      </scroll-view>
+    </view>
+
+    <button wx:if="{{!id}}" class="secondary import-toggle" bindtap="toggleImport">{{importExpanded ? '收起补录老会员信息' : '补录老会员信息'}}</button>
+
+    <view wx:if="{{!id && importExpanded}}" class="import-panel">
+      <view class="compact-line">
+        <view class="compact-label">金额</view>
+        <input class="input compact-input" value="{{importForm.initialBalanceYuan}}" data-field="initialBalanceYuan" bindinput="onImportInput" type="digit" placeholder="单位：元" />
+      </view>
+      <view class="compact-line">
+        <view class="compact-label">折扣</view>
+        <scroll-view class="compact-scroll" scroll-x>
+          <view class="compact-controls">
+            <view class="mini-chip {{!importForm.discount ? 'active' : ''}}" bindtap="clearDiscount">无</view>
+            <view
+              wx:for="{{discountOptions}}"
+              wx:key="value"
+              class="mini-chip {{item.value === importForm.discount ? 'active' : ''}}"
+              bindtap="selectDiscount"
+              data-value="{{item.value}}"
+            >{{item.label}}</view>
+            <input class="input compact-input discount-input" value="{{importForm.discount}}" data-field="discount" bindinput="onImportInput" type="digit" placeholder="自定义" />
+          </view>
+        </scroll-view>
+      </view>
+      <view class="compact-line">
+        <view class="compact-label">来源</view>
+        <scroll-view class="compact-scroll" scroll-x>
+          <view class="compact-controls">
+            <view
+              wx:for="{{bookOptions}}"
+              wx:key="*this"
+              class="mini-chip {{item === importForm.offlineBook ? 'active' : ''}}"
+              bindtap="selectOfflineBook"
+              data-value="{{item}}"
+            >{{item}}</view>
+            <input class="input compact-input page-input" value="{{importForm.offlinePage}}" data-field="offlinePage" bindinput="onImportInput" type="number" placeholder="页码" />
+          </view>
+        </scroll-view>
+      </view>
+    </view>
+
+    <view class="field">
       <view class="label">备注</view>
       <input class="input" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
     </view>
-    <button class="primary" bindtap="save">保存</button>
+
+    <button class="primary" loading="{{saving}}" disabled="{{saving}}" bindtap="save">保存</button>
   </view>
 </view>
 

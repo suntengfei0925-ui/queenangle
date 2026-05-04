@@ -2,14 +2,27 @@ const { guardedPage } = require("../../utils/page");
 const api = require("../../utils/api");
 const fmt = require("../../utils/format");
 
+function formatBirthday(member) {
+  if (!member.birthdayMonth || !member.birthdayDay) return "";
+  return `${member.birthdayMonth}月${member.birthdayDay}日`;
+}
+
+function formatOfflineTrace(item) {
+  if (!item.offlineBook || !item.offlinePage) return "";
+  return `${item.offlineBook} 第${item.offlinePage}页`;
+}
+
 function normalizeRecord(item) {
+  const initialLine = item.type === "member_initial_balance"
+    ? (formatOfflineTrace(item) || item.remark || item.discountLabel || "")
+    : "";
   return {
     ...item,
     typeText: fmt.formatRecordType(item.type),
     statusText: item.status === "void" ? "已作废" : "有效",
     timeText: fmt.formatDateTime(item.occurredAt || item.createdAt),
     actualReceivedYuan: fmt.centToYuan(item.actualReceivedCent),
-    nameLine: fmt.formatServiceSummary(item) || item.cardName || item.discountLabel || ""
+    nameLine: initialLine || fmt.formatServiceSummary(item) || item.cardName || item.discountLabel || ""
   };
 }
 
@@ -44,7 +57,9 @@ guardedPage({
           member: {
             ...member,
             balanceYuan: fmt.centToYuan(member.balanceCent),
-            discountText: fmt.formatDiscount(member.currentDiscount)
+            discountText: fmt.formatDiscount(member.currentDiscount),
+            birthdayText: formatBirthday(member),
+            offlineTraceText: formatOfflineTrace(member)
           },
           cards: member.cardBalances || [],
           records: (data.records || []).map(normalizeRecord)

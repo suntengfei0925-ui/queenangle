@@ -15,9 +15,17 @@ createdAt
 name
 phone
 remark
+birthdayMonth
+birthdayDay
 balanceCent
 currentDiscount
 currentDiscountLabel
+memberSource
+offlineBook
+offlinePage
+importRemark
+importedAt
+importedByOpenid
 cardBalances[]
 createdAt
 updatedAt
@@ -128,8 +136,24 @@ voidedAt
 guest_consumption
 member_consumption
 member_recharge
+member_initial_balance
 card_purchase
 card_use
+```
+
+`importRemark` 为系统自动生成的补录备注，不由页面手动输入。
+
+`member_initial_balance` 用于老会员新建补录，不计入充值收入。核心字段：
+
+```text
+amountCent
+actualReceivedCent = 0
+paymentMethod = 空
+discount
+discountLabel
+offlineBook
+offlinePage
+remark
 ```
 
 `status` 支持：
@@ -150,6 +174,14 @@ amountCent
 balanceAfterCent
 remark
 createdAt
+```
+
+`type` 支持：
+
+```text
+initial_balance
+recharge
+consume
 ```
 
 ## card_flows

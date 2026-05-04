@@ -19,6 +19,7 @@ const C = {
 };
 
 const PAYMENT_METHODS = ["wechat", "alipay", "cash"];
+const OFFLINE_BOOKS = ["本子1", "本子2", "本子3", "本子4"];
 
 function error(code, message) {
   const err = new Error(message);
@@ -53,7 +54,7 @@ function yuanToCent(value) {
 }
 
 function normalizeText(value) {
-  return String(value || "").trim();
+  return String(value === null || value === undefined ? "" : value).trim();
 }
 
 function isCollectionNotFound(err) {
@@ -92,7 +93,106 @@ function normalizeDiscount(value) {
 
 function discountLabel(value) {
   if (!value) return "无折扣";
-  return `${value} 折`;
+  return `${value}折`;
+}
+
+function daysInMonth(month) {
+  return [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1] || 0;
+}
+
+function normalizeBirthday(monthValue, dayValue) {
+  const monthText = normalizeText(monthValue);
+  const dayText = normalizeText(dayValue);
+  if (!monthText && !dayText) {
+    return {
+      birthdayMonth: null,
+      birthdayDay: null
+    };
+  }
+  if (!monthText || !dayText) {
+    throw error("VALIDATION_ERROR", "生日月份和日期需要同时填写");
+  }
+
+  const birthdayMonth = Number(monthText);
+  const birthdayDay = Number(dayText);
+  if (!Number.isInteger(birthdayMonth) || birthdayMonth < 1 || birthdayMonth > 12) {
+    throw error("VALIDATION_ERROR", "生日月份不正确");
+  }
+  if (!Number.isInteger(birthdayDay) || birthdayDay < 1 || birthdayDay > daysInMonth(birthdayMonth)) {
+    throw error("VALIDATION_ERROR", "生日日期不正确");
+  }
+
+  return {
+    birthdayMonth,
+    birthdayDay
+  };
+}
+
+function parseInitialBalanceYuan(value) {
+  const text = normalizeText(value);
+  if (!text) return 0;
+  const num = Number(text);
+  if (!Number.isFinite(num)) throw error("VALIDATION_ERROR", "初始余额必须是有效数字");
+  if (num < 0) throw error("VALIDATION_ERROR", "初始余额不能小于 0");
+  return Math.round(num * 100);
+}
+
+function parseInitialBalanceCent(value) {
+  const text = normalizeText(value);
+  if (!text) return 0;
+  const num = Number(text);
+  if (!Number.isFinite(num)) throw error("VALIDATION_ERROR", "初始余额必须是有效数字");
+  if (num < 0) throw error("VALIDATION_ERROR", "初始余额不能小于 0");
+  return Math.round(num);
+}
+
+function normalizeInitialDiscount(value) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const discount = normalizeDiscount(text);
+  if (!discount) throw error("VALIDATION_ERROR", "折扣必须在 0 到 10 之间");
+  return discount;
+}
+
+function normalizeOfflinePage(value) {
+  const text = normalizeText(value);
+  if (!text) return null;
+  const page = Number(text);
+  if (!Number.isInteger(page) || page <= 0) {
+    throw error("VALIDATION_ERROR", "页码必须是正整数");
+  }
+  return page;
+}
+
+function normalizeMemberImport(value) {
+  const input = value || {};
+  const initialBalanceCent = input.initialBalanceYuan !== undefined
+    ? parseInitialBalanceYuan(input.initialBalanceYuan)
+    : parseInitialBalanceCent(input.initialBalanceCent);
+  const discount = normalizeInitialDiscount(input.discount);
+  const offlineBook = normalizeText(input.offlineBook);
+  const offlinePage = normalizeOfflinePage(input.offlinePage);
+
+  if (offlineBook && !OFFLINE_BOOKS.includes(offlineBook)) {
+    throw error("VALIDATION_ERROR", "来源本子不正确");
+  }
+  if ((offlineBook && !offlinePage) || (!offlineBook && offlinePage)) {
+    throw error("VALIDATION_ERROR", "来源本子和页码需要同时填写");
+  }
+
+  const imported = initialBalanceCent > 0 || !!discount || (!!offlineBook && !!offlinePage);
+  const importRemark = imported && offlineBook && offlinePage
+    ? `老会员补录；来源：${offlineBook}；页码：${offlinePage}`
+    : imported ? "老会员补录" : "";
+  return {
+    imported,
+    initialBalanceCent,
+    discount,
+    discountLabel: discountLabel(discount),
+    offlineBook: offlineBook || "",
+    offlinePage,
+    importRemark
+  };
 }
 
 function serviceItemLabel(item) {
@@ -186,42 +286,101 @@ async function listMembers(event) {
 }
 
 async function saveMember(event) {
-  await assertOwner();
+  const openid = await assertOwner();
   const id = event.id;
   const name = normalizeText(event.name);
   const phone = normalizeText(event.phone);
   const remark = normalizeText(event.remark);
+  const birthday = normalizeBirthday(event.birthdayMonth, event.birthdayDay);
+  const importInfo = normalizeMemberImport(event.importInfo);
 
   if (!name) throw error("VALIDATION_ERROR", "会员姓名不能为空");
   if (!phone) throw error("VALIDATION_ERROR", "会员手机号不能为空");
-
-  const samePhone = await db.collection(C.MEMBERS).where({ phone }).limit(10).get();
-  const duplicated = (samePhone.data || []).some((item) => item._id !== id);
-  if (duplicated) throw error("DUPLICATE_PHONE", "该手机号已存在会员");
 
   const payload = {
     name,
     phone,
     remark,
+    birthdayMonth: birthday.birthdayMonth,
+    birthdayDay: birthday.birthdayDay,
     updatedAt: db.serverDate()
   };
 
-  if (id) {
-    await db.collection(C.MEMBERS).doc(id).update({ data: payload });
-    return { id };
-  }
+  return db.runTransaction(async (transaction) => {
+    const memberCollection = transaction.collection(C.MEMBERS);
+    const samePhone = await memberCollection.where({ phone }).limit(10).get();
+    const duplicated = (samePhone.data || []).some((item) => item._id !== id);
+    if (duplicated) throw error("DUPLICATE_PHONE", "该手机号已存在会员");
 
-  const addRes = await db.collection(C.MEMBERS).add({
-    data: {
-      ...payload,
-      balanceCent: 0,
-      currentDiscount: null,
-      currentDiscountLabel: "无折扣",
-      cardBalances: [],
-      createdAt: db.serverDate()
+    if (id) {
+      await memberCollection.doc(id).update({ data: payload });
+      return { id };
     }
+
+    const initialState = {
+      balanceCent: importInfo.imported ? importInfo.initialBalanceCent : 0,
+      currentDiscount: importInfo.imported ? importInfo.discount : null,
+      currentDiscountLabel: importInfo.imported ? importInfo.discountLabel : "无折扣",
+      cardBalances: []
+    };
+    const memberData = {
+      ...payload,
+      ...initialState,
+      memberSource: importInfo.imported ? "imported" : "normal",
+      offlineBook: importInfo.imported ? importInfo.offlineBook : "",
+      offlinePage: importInfo.imported ? importInfo.offlinePage : null,
+      importRemark: importInfo.imported ? importInfo.importRemark : "",
+      createdAt: db.serverDate()
+    };
+
+    if (importInfo.imported) {
+      memberData.importedAt = db.serverDate();
+      memberData.importedByOpenid = openid;
+    }
+
+    const addRes = await memberCollection.add({ data: memberData });
+    if (!importInfo.imported) return { id: addRes._id };
+
+    const occurredAt = nowDate();
+    const recordRes = await transaction.collection(C.RECORDS).add({
+      data: {
+        type: "member_initial_balance",
+        status: "active",
+        memberId: addRes._id,
+        memberName: name,
+        amountCent: importInfo.initialBalanceCent,
+        actualReceivedCent: 0,
+        paymentMethod: "",
+        discount: importInfo.discount,
+        discountLabel: importInfo.discountLabel,
+        offlineBook: importInfo.offlineBook,
+        offlinePage: importInfo.offlinePage,
+        remark: importInfo.importRemark,
+        memberBefore: null,
+        memberAfter: initialState,
+        occurredAt,
+        businessDate: businessDate(occurredAt),
+        createdByOpenid: openid,
+        createdAt: db.serverDate(),
+        updatedAt: db.serverDate()
+      }
+    });
+
+    await transaction.collection(C.BALANCE_FLOWS).add({
+      data: {
+        memberId: addRes._id,
+        memberName: name,
+        type: "initial_balance",
+        sourceRecordId: recordRes._id,
+        amountCent: importInfo.initialBalanceCent,
+        balanceAfterCent: importInfo.initialBalanceCent,
+        remark: importInfo.importRemark,
+        createdAt: db.serverDate()
+      }
+    });
+
+    return { id: addRes._id };
   });
-  return { id: addRes._id };
 }
 
 async function getMemberDetail(event) {
@@ -947,6 +1106,12 @@ function replayMemberState(records, ignoredRecordId) {
     });
 
   sorted.forEach((record) => {
+    if (record.type === "member_initial_balance") {
+      state.balanceCent = toCent(record.amountCent);
+      state.currentDiscount = record.discount || null;
+      state.currentDiscountLabel = record.discountLabel || discountLabel(record.discount);
+    }
+
     if (record.type === "member_recharge") {
       state.balanceCent += toCent(record.amountCent);
       state.currentDiscount = record.discount || null;

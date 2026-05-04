@@ -15,7 +15,7 @@ function formatDiscount(value) {
   if (!value) return "无折扣";
   const num = Number(value);
   if (!Number.isFinite(num) || num >= 10) return "无折扣";
-  return `${num} 折`;
+  return `${num}折`;
 }
 
 function formatPayment(value) {
@@ -35,8 +35,18 @@ function formatRecordType(value) {
     guest_consumption: "散客消费",
     member_consumption: "会员消费",
     member_recharge: "会员充值",
+    member_initial_balance: "初始余额",
     card_purchase: "次卡购买",
     card_use: "次卡核销"
+  };
+  return map[value] || value || "-";
+}
+
+function formatBalanceFlowType(value) {
+  const map = {
+    initial_balance: "初始余额",
+    recharge: "充值",
+    consume: "消费"
   };
   return map[value] || value || "-";
 }
@@ -71,6 +81,7 @@ module.exports = {
   formatDiscount,
   formatPayment,
   formatRecordType,
+  formatBalanceFlowType,
   formatServiceItemName,
   formatServiceSummary,
   formatDateTime

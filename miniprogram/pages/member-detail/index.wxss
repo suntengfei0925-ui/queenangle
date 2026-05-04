@@ -10,6 +10,15 @@
   padding-top: 8rpx;
 }
 
+.member-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  padding: 16rpx;
+  border-radius: 8rpx;
+  background: #f9fafb;
+}
+
 .card-row {
   min-height: 52rpx;
 }

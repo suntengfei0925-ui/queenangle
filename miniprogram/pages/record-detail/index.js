@@ -6,6 +6,11 @@ function row(label, value) {
   return { label, value: value || "-" };
 }
 
+function formatOfflineTrace(record) {
+  if (!record.offlineBook || !record.offlinePage) return "";
+  return `${record.offlineBook} 第${record.offlinePage}页`;
+}
+
 function buildRows(record) {
   const rows = [
     row("会员", record.memberName),
@@ -21,6 +26,13 @@ function buildRows(record) {
   if (record.type === "member_recharge") {
     rows.push(row("充值金额", `¥${fmt.centToYuan(record.amountCent)}`));
     rows.push(row("充值后折扣", record.discountLabel));
+    rows.push(row("实收金额", `¥${fmt.centToYuan(record.actualReceivedCent)}`));
+  }
+
+  if (record.type === "member_initial_balance") {
+    rows.push(row("初始余额", `¥${fmt.centToYuan(record.amountCent)}`));
+    rows.push(row("初始折扣", record.discountLabel || fmt.formatDiscount(record.discount)));
+    rows.push(row("线下位置", formatOfflineTrace(record)));
     rows.push(row("实收金额", `¥${fmt.centToYuan(record.actualReceivedCent)}`));
   }
 
