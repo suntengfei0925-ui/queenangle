@@ -25,19 +25,15 @@
 
   <block wx:else>
     <view wx:if="{{cardTypes.length === 0}}" class="empty">暂无次卡类型</view>
-    <view class="list" wx:else>
-      <view class="list-item" wx:for="{{cardTypes}}" wx:key="_id" bindtap="edit" data-id="{{item._id}}">
-        <view class="row">
-          <view>
-            <view class="sub-title">{{item.name}}</view>
-            <view class="muted">{{item.totalTimes}} 次，¥{{item.priceYuan}}</view>
-          </view>
-          <view class="tag {{item.enabled ? '' : 'gray'}}">{{item.enabled ? "启用" : "停用"}}</view>
+    <view class="section panel config-list" wx:else>
+      <view class="config-row {{item.enabled ? '' : 'is-disabled'}}" wx:for="{{cardTypes}}" wx:key="_id">
+        <view class="config-main">
+          <view class="sub-title config-title">{{item.name}}</view>
+          <view class="muted config-meta">{{item.totalTimes}} 次，¥{{item.priceYuan}}</view>
         </view>
-        <view wx:if="{{item.remark}}" class="muted">{{item.remark}}</view>
-        <view class="button-row card-actions">
-          <button class="secondary" size="mini" catchtap="edit" data-id="{{item._id}}">编辑</button>
-          <button class="secondary" size="mini" catchtap="toggle" data-id="{{item._id}}" data-enabled="{{!item.enabled}}">
+        <view class="inline-actions">
+          <button class="secondary inline-btn" size="mini" catchtap="edit" data-id="{{item._id}}">编辑</button>
+          <button class="inline-btn {{item.enabled ? 'red-btn' : 'green-btn'}}" size="mini" catchtap="toggle" data-id="{{item._id}}" data-enabled="{{!item.enabled}}">
             {{item.enabled ? "停用" : "启用"}}
           </button>
         </view>

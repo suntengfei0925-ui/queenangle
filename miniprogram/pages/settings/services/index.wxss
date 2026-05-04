@@ -1,4 +1,3 @@
-
 .settings-config-page {
   padding-bottom: 140rpx;
 }
@@ -16,45 +15,42 @@
 .service-group {
   display: flex;
   flex-direction: column;
-  gap: 18rpx;
+  gap: 14rpx;
 }
 
 .group-header {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .group-list {
   display: flex;
   flex-direction: column;
-}
-
-.service-row {
-  padding: 18rpx 0;
   border-top: 1rpx solid #e5e7eb;
 }
 
-.service-row:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.service-title-line {
+.service-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16rpx;
+  min-height: 66rpx;
+  padding: 10rpx 0;
+  border-bottom: 1rpx solid #e5e7eb;
+}
+
+.service-row.is-disabled .service-name {
+  color: #9ca3af;
 }
 
 .service-main {
+  flex: 1;
   min-width: 0;
 }
 
-.service-remark {
-  margin-top: 8rpx;
-}
-
-.service-actions {
-  margin-top: 16rpx;
+.service-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group-action {

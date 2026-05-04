@@ -1,6 +1,24 @@
-
 .select-member-page {
   padding-bottom: 140rpx;
+}
+
+.member-list {
+  gap: 10rpx;
+}
+
+.member-item {
+  padding: 14rpx 18rpx;
+}
+
+.member-name,
+.member-phone {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-phone {
+  margin-top: 4rpx;
 }
 
 .fixed-action {

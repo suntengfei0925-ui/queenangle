@@ -14,18 +14,19 @@
             {{item.name}}
           </view>
         </view>
-        <view class="service-list">
-          <view
-            wx:for="{{activeServices}}"
-            wx:key="_id"
-            class="service-item"
-            bindtap="addService"
-            data-id="{{item._id}}"
-          >
-            <view>{{item.name}}</view>
-            <view wx:if="{{!item.isOther}}" class="muted small-text">{{item.usageCount}} 次</view>
+        <scroll-view class="service-list" scroll-y="true" enhanced="true" show-scrollbar="true">
+          <view class="service-list-inner">
+            <view
+              wx:for="{{activeServices}}"
+              wx:key="_id"
+              class="service-item"
+              bindtap="addService"
+              data-id="{{item._id}}"
+            >
+              <view class="service-name">{{item.name}}</view>
+            </view>
           </view>
-        </view>
+        </scroll-view>
       </view>
     </view>
 

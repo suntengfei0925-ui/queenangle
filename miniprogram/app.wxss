@@ -209,6 +209,35 @@ button.danger-btn {
   color: #991b1b;
 }
 
+.inline-actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+button.inline-btn {
+  min-width: 92rpx;
+  min-height: 52rpx;
+  line-height: 52rpx;
+  margin: 0;
+  padding: 0 14rpx;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+}
+
+button.green-btn {
+  border: 1rpx solid #10b981;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+button.red-btn {
+  border: 1rpx solid #f87171;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .empty {
   padding: 56rpx 24rpx;
   color: #6b7280;

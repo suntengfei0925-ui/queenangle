@@ -32,29 +32,17 @@
       <view wx:if="{{item.services.length === 0}}" class="empty">暂无服务项目</view>
       <view wx:else class="group-list">
         <view
-          class="service-row"
+          class="service-row {{service.enabled && service.categoryEnabled ? '' : 'is-disabled'}}"
           wx:for="{{item.services}}"
           wx:for-item="service"
           wx:key="_id"
-          bindtap="edit"
-          data-id="{{service._id}}"
         >
-          <view class="row">
-            <view class="service-main">
-              <view class="service-title-line">
-                <view class="sub-title">{{service.name}}</view>
-                <view wx:if="{{service.isOther}}" class="tag gray">系统项目</view>
-              </view>
-              <view class="muted">消费次数 {{service.usageCount}}</view>
-            </view>
-            <view wx:if="{{!service.isOther}}" class="tag {{service.enabled && service.categoryEnabled ? '' : 'gray'}}">
-              {{service.enabled && service.categoryEnabled ? "启用" : "停用"}}
-            </view>
+          <view class="service-main">
+            <view class="sub-title service-name">{{service.name}}</view>
           </view>
-          <view wx:if="{{service.remark}}" class="muted service-remark">{{service.remark}}</view>
-          <view wx:if="{{!service.isOther}}" class="button-row service-actions">
-            <button class="secondary" size="mini" catchtap="edit" data-id="{{service._id}}">编辑</button>
-            <button class="secondary" size="mini" catchtap="toggle" data-id="{{service._id}}" data-enabled="{{!service.enabled}}">
+          <view wx:if="{{!service.isOther}}" class="inline-actions service-actions">
+            <button class="secondary inline-btn" size="mini" catchtap="edit" data-id="{{service._id}}">编辑</button>
+            <button class="inline-btn {{service.enabled ? 'red-btn' : 'green-btn'}}" size="mini" catchtap="toggle" data-id="{{service._id}}" data-enabled="{{!service.enabled}}">
               {{service.enabled ? "停用" : "启用"}}
             </button>
           </view>

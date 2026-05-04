@@ -36,16 +36,15 @@
   </view>
 
   <view class="section">
-    <view class="row section">
+    <view class="section">
       <view class="sub-title">今日记录</view>
-      <button class="primary" size="mini" bindtap="goEntry">记一笔</button>
     </view>
     <view wx:if="{{records.length === 0}}" class="empty">今天还没有记录</view>
     <view class="list" wx:else>
-      <view class="list-item" wx:for="{{records}}" wx:key="_id" bindtap="goRecord" data-id="{{item._id}}">
+      <view class="list-item {{item.status === 'void' ? 'void-record' : ''}}" wx:for="{{records}}" wx:key="_id" bindtap="goRecord" data-id="{{item._id}}">
         <view class="row">
           <view class="sub-title">{{item.typeText}}</view>
-          <view class="tag {{item.status === 'void' ? 'red' : 'gray'}}">{{item.statusText}}</view>
+          <view wx:if="{{item.status === 'void'}}" class="tag red">{{item.statusText}}</view>
         </view>
         <view class="muted">{{item.nameLine}}</view>
         <view class="row">
@@ -56,4 +55,3 @@
     </view>
   </view>
 </view>
-

@@ -5,19 +5,10 @@
   </view>
 
   <view wx:if="{{members.length === 0}}" class="empty">暂无会员</view>
-  <view class="list" wx:else>
-    <view class="list-item" wx:for="{{members}}" wx:key="_id" bindtap="goDetail" data-id="{{item._id}}">
-      <view class="row">
-        <view>
-          <view class="sub-title">{{item.name}}</view>
-          <view class="muted">{{item.phone}}</view>
-        </view>
-        <view class="tag">{{item.discountText}}</view>
-      </view>
-      <view class="row">
-        <view class="money">余额 ¥{{item.balanceYuan}}</view>
-        <view class="muted">次卡 {{item.cardTotal}} 次</view>
-      </view>
+  <view class="list member-list" wx:else>
+    <view class="list-item member-item" wx:for="{{members}}" wx:key="_id" bindtap="goDetail" data-id="{{item._id}}">
+      <view class="sub-title member-name">{{item.name}}</view>
+      <view class="muted member-phone">{{item.phone}}</view>
     </view>
   </view>
 
@@ -25,4 +16,3 @@
     <button class="secondary add-member-btn" bindtap="addMember">新建会员</button>
   </view>
 </view>
-

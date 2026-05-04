@@ -17,17 +17,14 @@
 
   <block wx:else>
     <view wx:if="{{tiers.length === 0}}" class="empty">暂无充值档位</view>
-    <view class="list" wx:else>
-      <view class="list-item" wx:for="{{tiers}}" wx:key="_id" bindtap="edit" data-id="{{item._id}}">
-        <view class="row">
-          <view>
-            <view class="sub-title">充值 ¥{{item.amountYuan}}</view>
-            <view class="muted">点击编辑</view>
-          </view>
-          <view class="tag">{{item.discountLabel}}</view>
+    <view class="section panel config-list" wx:else>
+      <view class="config-row" wx:for="{{tiers}}" wx:key="_id">
+        <view class="config-main">
+          <view class="sub-title config-title">充 ¥{{item.amountYuan}}</view>
+          <view class="muted config-meta">{{item.discountLabel}}</view>
         </view>
-        <view class="button-row tier-actions">
-          <button class="secondary" size="mini" catchtap="edit" data-id="{{item._id}}">编辑</button>
+        <view class="inline-actions">
+          <button class="secondary inline-btn" size="mini" catchtap="edit" data-id="{{item._id}}">编辑</button>
         </view>
       </view>
     </view>
