@@ -27,7 +27,7 @@ guardedPage({
   },
 
   onMemberChange(e) {
-    const member = this.data.members[Number(e.detail.value)];
+    const member = this.data.members[Number(e.currentTarget.dataset.index)];
     const cards = (member.cardBalances || [])
       .filter((item) => Number(item.remainingTimes || 0) > 0)
       .map((item) => ({
@@ -42,7 +42,7 @@ guardedPage({
   },
 
   onCardChange(e) {
-    this.setData({ selectedCard: this.data.memberCards[Number(e.detail.value)] });
+    this.setData({ selectedCard: this.data.memberCards[Number(e.currentTarget.dataset.index)] });
   },
 
   onInput(e) {

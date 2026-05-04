@@ -112,7 +112,7 @@ guardedPage({
 
   onPaymentChange(e) {
     this.setData({
-      selectedPayment: this.data.paymentMethods[Number(e.detail.value)]
+      selectedPayment: this.data.paymentMethods[Number(e.currentTarget.dataset.index)]
     });
   },
 

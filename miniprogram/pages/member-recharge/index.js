@@ -50,7 +50,7 @@ guardedPage({
           tiers: (tiers || []).map((item) => ({
             ...item,
             amountYuan: fmt.centToYuan(item.amountCent),
-            displayName: `¥${fmt.centToYuan(item.amountCent)} / ${item.discountLabel}`
+            displayName: `充 ¥${fmt.centToYuan(item.amountCent)} / 享 ${item.discountLabel}`
           }))
         });
       })
@@ -58,11 +58,11 @@ guardedPage({
   },
 
   onTierChange(e) {
-    this.setData({ selectedTier: this.data.tiers[Number(e.detail.value)] });
+    this.setData({ selectedTier: this.data.tiers[Number(e.currentTarget.dataset.index)] });
   },
 
   onPaymentChange(e) {
-    this.setData({ selectedPayment: this.data.paymentMethods[Number(e.detail.value)] });
+    this.setData({ selectedPayment: this.data.paymentMethods[Number(e.currentTarget.dataset.index)] });
   },
 
   onRemarkInput(e) {

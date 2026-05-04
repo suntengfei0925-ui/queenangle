@@ -2,15 +2,33 @@
   <view class="panel form">
     <view class="field">
       <view class="label">会员</view>
-      <picker mode="selector" range="{{members}}" range-key="displayName" bindchange="onMemberChange">
-        <view class="picker">{{selectedMember.displayName || "请选择会员"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{members}}"
+          wx:key="_id"
+          class="select-option {{item._id === selectedMember._id ? 'active' : ''}}"
+          bindtap="onMemberChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.name}}</view>
+          <view wx:if="{{item.phone}}" class="select-option-meta">{{item.phone}}</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">次卡类型</view>
-      <picker mode="selector" range="{{cardTypes}}" range-key="displayName" bindchange="onCardTypeChange">
-        <view class="picker">{{selectedCardType.displayName || "请选择次卡类型"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{cardTypes}}"
+          wx:key="_id"
+          class="select-option {{item._id === selectedCardType._id ? 'active' : ''}}"
+          bindtap="onCardTypeChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.name}}</view>
+          <view class="select-option-meta">{{item.totalTimes}} 次卡 / ¥{{item.priceYuan}}</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">购买次数</view>
@@ -22,9 +40,17 @@
     </view>
     <view class="field">
       <view class="label">支付方式</view>
-      <picker mode="selector" range="{{paymentMethods}}" range-key="label" bindchange="onPaymentChange">
-        <view class="picker">{{selectedPayment.label || "请选择支付方式"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{paymentMethods}}"
+          wx:key="value"
+          class="select-option {{item.value === selectedPayment.value ? 'active' : ''}}"
+          bindtap="onPaymentChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.label}}</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">备注</view>

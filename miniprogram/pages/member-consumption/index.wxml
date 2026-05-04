@@ -93,9 +93,17 @@
     </view>
     <view wx:if="{{calc.extraPayCent > 0}}" class="field">
       <view class="label">补差价支付方式</view>
-      <picker mode="selector" range="{{paymentMethods}}" range-key="label" bindchange="onPaymentChange">
-        <view class="picker">{{selectedPayment.label || "请选择支付方式"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{paymentMethods}}"
+          wx:key="value"
+          class="select-option {{item.value === selectedPayment.value ? 'active' : ''}}"
+          bindtap="onPaymentChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.label}}</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">备注</view>

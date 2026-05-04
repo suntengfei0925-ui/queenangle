@@ -80,8 +80,7 @@ page {
 }
 
 .input,
-.textarea,
-.picker {
+.textarea {
   min-height: 84rpx;
   box-sizing: border-box;
   border: 1rpx solid #d1d5db;
@@ -92,6 +91,53 @@ page {
 
 .textarea {
   min-height: 144rpx;
+}
+
+.select-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.select-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  min-height: 84rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #d1d5db;
+  border-radius: 10rpx;
+  background: #ffffff;
+  padding: 18rpx 20rpx;
+  color: #111827;
+}
+
+.select-option.active {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+}
+
+.select-option-title {
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+  word-break: break-all;
+}
+
+.select-option-meta {
+  flex-shrink: 0;
+  max-width: 48%;
+  color: #6b7280;
+  font-size: 24rpx;
+  text-align: right;
+  word-break: break-all;
+}
+
+.select-option.active .select-option-meta {
+  color: #047857;
 }
 
 .button-row {
@@ -156,5 +202,9 @@ button.danger-btn {
   padding: 56rpx 24rpx;
   color: #6b7280;
   text-align: center;
+}
+
+.compact-empty {
+  padding: 28rpx 16rpx;
 }
 

@@ -36,7 +36,8 @@ guardedPage({
           })),
           cardTypes: (cardTypes || []).map((item) => ({
             ...item,
-            displayName: `${item.name} / ${item.totalTimes} 次`
+            priceYuan: fmt.centToYuan(item.priceCent),
+            displayName: `${item.name} / ${item.totalTimes} 次卡 / ¥${fmt.centToYuan(item.priceCent)}`
           }))
         });
       })
@@ -44,11 +45,11 @@ guardedPage({
   },
 
   onMemberChange(e) {
-    this.setData({ selectedMember: this.data.members[Number(e.detail.value)] });
+    this.setData({ selectedMember: this.data.members[Number(e.currentTarget.dataset.index)] });
   },
 
   onCardTypeChange(e) {
-    const cardType = this.data.cardTypes[Number(e.detail.value)];
+    const cardType = this.data.cardTypes[Number(e.currentTarget.dataset.index)];
     this.setData({
       selectedCardType: cardType,
       "form.purchaseTimes": String(cardType.totalTimes || ""),
@@ -57,7 +58,7 @@ guardedPage({
   },
 
   onPaymentChange(e) {
-    this.setData({ selectedPayment: this.data.paymentMethods[Number(e.detail.value)] });
+    this.setData({ selectedPayment: this.data.paymentMethods[Number(e.currentTarget.dataset.index)] });
   },
 
   onInput(e) {

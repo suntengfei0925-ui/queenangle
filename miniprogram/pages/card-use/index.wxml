@@ -2,15 +2,35 @@
   <view class="panel form">
     <view class="field">
       <view class="label">会员</view>
-      <picker mode="selector" range="{{members}}" range-key="displayName" bindchange="onMemberChange">
-        <view class="picker">{{selectedMember.displayName || "请选择会员"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{members}}"
+          wx:key="_id"
+          class="select-option {{item._id === selectedMember._id ? 'active' : ''}}"
+          bindtap="onMemberChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.name}}</view>
+          <view wx:if="{{item.phone}}" class="select-option-meta">{{item.phone}}</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">次卡</view>
-      <picker mode="selector" range="{{memberCards}}" range-key="displayName" bindchange="onCardChange">
-        <view class="picker">{{selectedCard.displayName || "请选择次卡"}}</view>
-      </picker>
+      <view wx:if="{{!selectedMember._id}}" class="empty compact-empty">请先选择会员</view>
+      <view wx:elif="{{memberCards.length === 0}}" class="empty compact-empty">暂无可核销次卡</view>
+      <view wx:else class="select-list">
+        <view
+          wx:for="{{memberCards}}"
+          wx:key="cardTypeId"
+          class="select-option {{item.cardTypeId === selectedCard.cardTypeId ? 'active' : ''}}"
+          bindtap="onCardChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.cardName}}</view>
+          <view class="select-option-meta">剩余 {{item.remainingTimes}} 次</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">核销次数</view>

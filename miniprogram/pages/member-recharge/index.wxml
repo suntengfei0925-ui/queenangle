@@ -24,15 +24,32 @@
   <view class="panel form">
     <view class="field">
       <view class="label">充值档位</view>
-      <picker mode="selector" range="{{tiers}}" range-key="displayName" bindchange="onTierChange">
-        <view class="picker">{{selectedTier.displayName || "请选择充值档位"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{tiers}}"
+          wx:key="_id"
+          class="select-option {{item._id === selectedTier._id ? 'active' : ''}}"
+          bindtap="onTierChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">充 ¥{{item.amountYuan}}</view>
+          <view class="select-option-meta">享 {{item.discountLabel}}</view>
+        </view>
+      </view>
     </view>
     <view class="field">
       <view class="label">支付方式</view>
-      <picker mode="selector" range="{{paymentMethods}}" range-key="label" bindchange="onPaymentChange">
-        <view class="picker">{{selectedPayment.label || "请选择支付方式"}}</view>
-      </picker>
+      <view class="select-list">
+        <view
+          wx:for="{{paymentMethods}}"
+          wx:key="value"
+          class="select-option {{item.value === selectedPayment.value ? 'active' : ''}}"
+          bindtap="onPaymentChange"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.label}}</view>
+        </view>
+      </view>
     </view>
     <view wx:if="{{selectedTier._id}}" class="tier-summary">
       <view class="row">
