@@ -5,10 +5,17 @@
   </view>
 
   <view class="list">
+    <view class="list-item row" bindtap="goPage" data-url="/pages/settings/service-categories/index">
+      <view>
+        <view class="sub-title">服务分类</view>
+        <view class="muted">维护美甲、美睫等服务大类</view>
+      </view>
+      <view>进入</view>
+    </view>
     <view class="list-item row" bindtap="goPage" data-url="/pages/settings/services/index">
       <view>
         <view class="sub-title">服务项目</view>
-        <view class="muted">项目名称、标准价格、启用状态</view>
+        <view class="muted">所属分类、项目名称、启用状态</view>
       </view>
       <view>进入</view>
     </view>

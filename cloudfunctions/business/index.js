@@ -9,6 +9,7 @@ const db = cloud.database();
 const C = {
   WHITELIST: "owner_whitelist",
   MEMBERS: "members",
+  SERVICE_CATEGORIES: "service_categories",
   SERVICES: "services",
   TIERS: "recharge_tiers",
   CARD_TYPES: "card_types",
@@ -65,6 +66,38 @@ function normalizeDiscount(value) {
 function discountLabel(value) {
   if (!value) return "无折扣";
   return `${value} 折`;
+}
+
+function serviceItemLabel(item) {
+  const categoryName = normalizeText(item.categoryName);
+  const serviceName = normalizeText(item.serviceName || item.name);
+  if (categoryName && serviceName) return `${categoryName}-${serviceName}`;
+  return serviceName || categoryName || "-";
+}
+
+function summarizeServiceItems(items, fallbackName) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length === 0) return normalizeText(fallbackName);
+  const first = serviceItemLabel(list[0]);
+  return list.length > 1 ? `${first} 等 ${list.length} 项` : first;
+}
+
+function getCollection(context, name) {
+  return context ? context.collection(name) : db.collection(name);
+}
+
+function compareServicesForSelection(a, b) {
+  const aOther = a.isOther || a.name === "其他";
+  const bOther = b.isOther || b.name === "其他";
+  if (aOther !== bOther) return aOther ? 1 : -1;
+  if (!aOther && a.usageCount !== b.usageCount) {
+    return Number(b.usageCount || 0) - Number(a.usageCount || 0);
+  }
+  return normalizeText(a.name).localeCompare(normalizeText(b.name), "zh-Hans");
+}
+
+function sortServicesForSelection(services) {
+  return [...(services || [])].sort(compareServicesForSelection);
 }
 
 function nowDate() {
@@ -191,30 +224,225 @@ async function getMemberDetail(event) {
   };
 }
 
-async function listServices(event) {
+async function ensureOtherService(category, context) {
+  const serviceCollection = getCollection(context, C.SERVICES);
+  const res = await serviceCollection
+    .where({
+      categoryId: category._id,
+      name: "其他"
+    })
+    .limit(1)
+    .get();
+
+  if ((res.data || []).length > 0) return res.data[0];
+
+  const addRes = await serviceCollection.add({
+    data: {
+      categoryId: category._id,
+      categoryName: category.name,
+      name: "其他",
+      isOther: true,
+      enabled: true,
+      remark: "",
+      createdAt: db.serverDate(),
+      updatedAt: db.serverDate()
+    }
+  });
+  return { _id: addRes._id };
+}
+
+async function ensureDefaultServiceCategories() {
+  const categoryRes = await db.collection(C.SERVICE_CATEGORIES).limit(1).get();
+  if ((categoryRes.data || []).length > 0) return;
+
+  const defaults = ["美甲", "美睫"];
+  for (const name of defaults) {
+    const addRes = await db.collection(C.SERVICE_CATEGORIES).add({
+      data: {
+        name,
+        enabled: true,
+        createdAt: db.serverDate(),
+        updatedAt: db.serverDate()
+      }
+    });
+    await ensureOtherService({ _id: addRes._id, name });
+  }
+}
+
+async function listServiceCategories(event = {}) {
   await assertOwner();
+  await ensureDefaultServiceCategories();
   const onlyEnabled = !!event.onlyEnabled;
-  const collection = db.collection(C.SERVICES);
+  const collection = db.collection(C.SERVICE_CATEGORIES);
   const query = onlyEnabled ? collection.where({ enabled: true }) : collection;
-  const res = await query.orderBy("updatedAt", "desc").limit(100).get();
-  return res.data || [];
+  const res = await query.orderBy("createdAt", "asc").limit(100).get();
+  const categories = res.data || [];
+  for (const category of categories) {
+    await ensureOtherService(category);
+  }
+  return categories;
+}
+
+async function saveServiceCategory(event) {
+  await assertOwner();
+  const name = normalizeText(event.name);
+  const enabled = event.enabled !== false;
+  if (!name) throw error("VALIDATION_ERROR", "分类名称不能为空");
+
+  const duplicateRes = await db.collection(C.SERVICE_CATEGORIES)
+    .where({ name })
+    .limit(10)
+    .get();
+  const duplicated = (duplicateRes.data || []).some((item) => item._id !== event.id);
+  if (duplicated) throw error("DUPLICATE_NAME", "服务分类名称已存在");
+
+  const payload = {
+    name,
+    enabled,
+    updatedAt: db.serverDate()
+  };
+
+  if (event.id) {
+    await db.collection(C.SERVICE_CATEGORIES).doc(event.id).update({ data: payload });
+    await db.collection(C.SERVICES).where({ categoryId: event.id }).update({
+      data: {
+        categoryName: name,
+        updatedAt: db.serverDate()
+      }
+    });
+    await ensureOtherService({ _id: event.id, name });
+    return { id: event.id };
+  }
+
+  const res = await db.collection(C.SERVICE_CATEGORIES).add({
+    data: {
+      ...payload,
+      createdAt: db.serverDate()
+    }
+  });
+  await ensureOtherService({ _id: res._id, name });
+  return { id: res._id };
+}
+
+async function toggleServiceCategory(event) {
+  await assertOwner();
+  const category = await getById(db.collection(C.SERVICE_CATEGORIES), event.id, "服务分类不存在");
+  await db.collection(C.SERVICE_CATEGORIES).doc(event.id).update({
+    data: {
+      enabled: !!event.enabled,
+      updatedAt: db.serverDate()
+    }
+  });
+  await ensureOtherService(category);
+  return { id: event.id };
+}
+
+async function getServiceUsageCounts() {
+  const res = await db.collection(C.RECORDS)
+    .where({
+      status: "active"
+    })
+    .limit(1000)
+    .get();
+  const counts = {};
+  (res.data || []).forEach((record) => {
+    if (!["guest_consumption", "member_consumption"].includes(record.type)) return;
+    const items = Array.isArray(record.serviceItems) && record.serviceItems.length
+      ? record.serviceItems
+      : record.serviceId ? [{ serviceId: record.serviceId }] : [];
+    items.forEach((item) => {
+      if (!item.serviceId) return;
+      counts[item.serviceId] = (counts[item.serviceId] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+async function listServices(event = {}) {
+  await assertOwner();
+  await ensureDefaultServiceCategories();
+  const onlyEnabled = !!event.onlyEnabled;
+  const categories = await listServiceCategories({ onlyEnabled: false });
+  const categoryMap = {};
+  categories.forEach((category) => {
+    categoryMap[category._id] = category;
+  });
+
+  let services = [];
+  if (event.categoryId) {
+    const res = await db.collection(C.SERVICES)
+      .where({ categoryId: event.categoryId })
+      .limit(200)
+      .get();
+    services = res.data || [];
+  } else {
+    const res = await db.collection(C.SERVICES).limit(500).get();
+    services = res.data || [];
+  }
+
+  const usageCounts = await getServiceUsageCounts();
+  services = services
+    .filter((service) => service.categoryId)
+    .filter((service) => !onlyEnabled || (service.enabled !== false && categoryMap[service.categoryId] && categoryMap[service.categoryId].enabled !== false))
+    .map((service) => ({
+      ...service,
+      categoryName: service.categoryName || (categoryMap[service.categoryId] && categoryMap[service.categoryId].name) || "",
+      categoryEnabled: categoryMap[service.categoryId] ? categoryMap[service.categoryId].enabled !== false : false,
+      isOther: service.isOther || service.name === "其他",
+      usageCount: usageCounts[service._id] || 0
+    }));
+
+  return services.sort((a, b) => {
+    const categoryDiff = normalizeText(a.categoryName).localeCompare(normalizeText(b.categoryName), "zh-Hans");
+    if (categoryDiff !== 0) return categoryDiff;
+    return compareServicesForSelection(a, b);
+  });
+}
+
+async function listServiceCatalog(event = {}) {
+  await assertOwner();
+  await ensureDefaultServiceCategories();
+  const onlyEnabled = !!event.onlyEnabled;
+  const categories = await listServiceCategories({ onlyEnabled });
+  const services = await listServices({ onlyEnabled });
+
+  return categories.map((category) => ({
+    ...category,
+    services: sortServicesForSelection(services.filter((service) => service.categoryId === category._id))
+  }));
 }
 
 async function saveService(event) {
   await assertOwner();
+  const categoryId = event.categoryId;
+  const category = await getById(db.collection(C.SERVICE_CATEGORIES), categoryId, "请选择服务分类");
   const name = normalizeText(event.name);
-  const priceCent = event.priceCent !== undefined ? toCent(event.priceCent) : yuanToCent(event.priceYuan);
   const remark = normalizeText(event.remark);
   const enabled = event.enabled !== false;
 
   if (!name) throw error("VALIDATION_ERROR", "项目名称不能为空");
-  if (priceCent < 0) throw error("VALIDATION_ERROR", "标准价格不能小于 0");
+
+  const oldService = event.id
+    ? await getById(db.collection(C.SERVICES), event.id, "服务项目不存在")
+    : null;
+  if (oldService && oldService.isOther && name !== "其他") {
+    throw error("VALIDATION_ERROR", "其他项目不能改名");
+  }
+
+  const duplicateRes = await db.collection(C.SERVICES)
+    .where({ categoryId, name })
+    .limit(10)
+    .get();
+  const duplicated = (duplicateRes.data || []).some((item) => item._id !== event.id);
+  if (duplicated) throw error("DUPLICATE_NAME", "同一分类下项目名称已存在");
 
   const payload = {
+    categoryId,
+    categoryName: category.name,
     name,
-    priceCent,
     remark,
     enabled,
+    isOther: oldService ? !!oldService.isOther : name === "其他",
     updatedAt: db.serverDate()
   };
 
@@ -241,6 +469,57 @@ async function toggleService(event) {
     }
   });
   return { id: event.id };
+}
+
+function normalizeServiceItemInputs(event) {
+  const items = Array.isArray(event.serviceItems) ? event.serviceItems : [];
+  if (items.length > 0) return items;
+  if (!event.serviceId) return [];
+  return [{
+    serviceId: event.serviceId,
+    originalAmountCent: event.originalAmountCent,
+    originalAmountYuan: event.originalAmountYuan
+  }];
+}
+
+async function buildServiceItemSnapshots(event, context) {
+  const inputs = normalizeServiceItemInputs(event);
+  if (inputs.length === 0) throw error("VALIDATION_ERROR", "请选择至少一个服务项目");
+
+  const serviceCollection = getCollection(context, C.SERVICES);
+  const categoryCollection = getCollection(context, C.SERVICE_CATEGORIES);
+  const snapshots = [];
+
+  for (const input of inputs) {
+    if (!input.serviceId) throw error("VALIDATION_ERROR", "服务项目不能为空");
+    if (input.originalAmountCent === undefined && input.originalAmountYuan === undefined) {
+      throw error("VALIDATION_ERROR", "单项原价不能为空");
+    }
+
+    const originalAmountCent = input.originalAmountCent !== undefined
+      ? toCent(input.originalAmountCent)
+      : yuanToCent(input.originalAmountYuan);
+    if (originalAmountCent < 0) throw error("VALIDATION_ERROR", "单项原价不能小于 0");
+
+    const service = await getById(serviceCollection, input.serviceId, "服务项目不存在");
+    if (service.enabled === false) throw error("VALIDATION_ERROR", "服务项目已停用");
+    const category = await getById(categoryCollection, service.categoryId, "服务分类不存在");
+    if (category.enabled === false) throw error("VALIDATION_ERROR", "服务分类已停用");
+
+    snapshots.push({
+      categoryId: category._id,
+      categoryName: category.name,
+      serviceId: service._id,
+      serviceName: service.name,
+      originalAmountCent
+    });
+  }
+
+  return snapshots;
+}
+
+function sumServiceItems(items) {
+  return (items || []).reduce((sum, item) => sum + toCent(item.originalAmountCent), 0);
 }
 
 async function listRechargeTiers() {
@@ -337,25 +616,19 @@ async function createGuestConsumption(event) {
   assertPayment(event.paymentMethod);
 
   const occurredAt = parseDate(event.occurredAt);
-  const serviceId = event.serviceId || "";
-  let serviceName = normalizeText(event.serviceName);
-  let originalAmountCent = event.originalAmountCent !== undefined ? toCent(event.originalAmountCent) : yuanToCent(event.originalAmountYuan);
-
-  if (serviceId) {
-    const service = await getById(db.collection(C.SERVICES), serviceId, "服务项目不存在");
-    serviceName = service.name;
-    if (!originalAmountCent) originalAmountCent = toCent(service.priceCent);
-  }
-
+  const serviceItems = await buildServiceItemSnapshots(event);
+  const originalAmountCent = sumServiceItems(serviceItems);
+  const firstItem = serviceItems[0];
+  const serviceName = summarizeServiceItems(serviceItems);
   const actualReceivedCent = event.actualReceivedCent !== undefined ? toCent(event.actualReceivedCent) : yuanToCent(event.actualReceivedYuan);
-  if (!serviceName) throw error("VALIDATION_ERROR", "消费项目不能为空");
   if (actualReceivedCent < 0) throw error("VALIDATION_ERROR", "实收金额不能小于 0");
 
   const record = {
     type: "guest_consumption",
     status: "active",
-    serviceId,
+    serviceId: firstItem.serviceId,
     serviceName,
+    serviceItems,
     originalAmountCent,
     consumptionAmountCent: actualReceivedCent,
     actualReceivedCent,
@@ -445,16 +718,15 @@ async function createMemberRecharge(event) {
 async function createMemberConsumption(event) {
   const openid = await assertOwner();
   const memberId = event.memberId;
-  const serviceId = event.serviceId;
   const occurredAt = parseDate(event.occurredAt);
 
   return db.runTransaction(async (transaction) => {
     const member = await getById(transaction.collection(C.MEMBERS), memberId, "会员不存在");
-    const service = await getById(transaction.collection(C.SERVICES), serviceId, "服务项目不存在");
+    const serviceItems = await buildServiceItemSnapshots(event, transaction);
+    const originalAmountCent = sumServiceItems(serviceItems);
+    const firstItem = serviceItems[0];
+    const serviceName = summarizeServiceItems(serviceItems);
     const before = pickMemberState(member);
-
-    let originalAmountCent = event.originalAmountCent !== undefined ? toCent(event.originalAmountCent) : yuanToCent(event.originalAmountYuan);
-    if (!originalAmountCent) originalAmountCent = toCent(service.priceCent);
 
     let payableCent = originalAmountCent;
     const hasBalance = before.balanceCent > 0;
@@ -489,8 +761,9 @@ async function createMemberConsumption(event) {
         status: "active",
         memberId,
         memberName: member.name,
-        serviceId,
-        serviceName: service.name,
+        serviceId: firstItem.serviceId,
+        serviceName,
+        serviceItems,
         originalAmountCent,
         consumptionAmountCent: payableCent,
         actualReceivedCent: extraPayCent,
@@ -886,7 +1159,11 @@ const actions = {
   listMembers,
   saveMember,
   getMemberDetail,
+  listServiceCategories,
+  saveServiceCategory,
+  toggleServiceCategory,
   listServices,
+  listServiceCatalog,
   saveService,
   toggleService,
   listRechargeTiers,

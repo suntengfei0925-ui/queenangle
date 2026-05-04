@@ -41,6 +41,22 @@ function formatRecordType(value) {
   return map[value] || value || "-";
 }
 
+function formatServiceItemName(item) {
+  const categoryName = item && item.categoryName ? item.categoryName : "";
+  const serviceName = item && item.serviceName ? item.serviceName : "";
+  if (categoryName && serviceName) return `${categoryName}-${serviceName}`;
+  return serviceName || categoryName || "-";
+}
+
+function formatServiceSummary(record) {
+  const items = record && Array.isArray(record.serviceItems) ? record.serviceItems : [];
+  if (items.length > 0) {
+    const first = formatServiceItemName(items[0]);
+    return items.length > 1 ? `${first} 等 ${items.length} 项` : first;
+  }
+  return record && record.serviceName ? record.serviceName : "";
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -55,6 +71,8 @@ module.exports = {
   formatDiscount,
   formatPayment,
   formatRecordType,
+  formatServiceItemName,
+  formatServiceSummary,
   formatDateTime
 };
 

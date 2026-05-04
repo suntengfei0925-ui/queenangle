@@ -7,7 +7,7 @@ function normalizeRecord(item) {
     ...item,
     typeText: fmt.formatRecordType(item.type),
     statusText: item.status === "void" ? "已作废" : "有效",
-    nameLine: item.memberName || item.serviceName || item.cardName || "-",
+    nameLine: fmt.formatServiceSummary(item) || item.memberName || item.cardName || "-",
     actualReceivedYuan: fmt.centToYuan(item.actualReceivedCent),
     paymentText: fmt.formatPayment(item.paymentMethod)
   };

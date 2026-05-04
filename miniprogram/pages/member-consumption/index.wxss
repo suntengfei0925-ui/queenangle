@@ -1,1 +1,88 @@
 
+.service-picker {
+  display: grid;
+  grid-template-columns: 180rpx 1fr;
+  min-height: 360rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 10rpx;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.category-list {
+  background: #f9fafb;
+  border-right: 1rpx solid #e5e7eb;
+}
+
+.category-item {
+  padding: 22rpx 18rpx;
+  color: #4b5563;
+  border-bottom: 1rpx solid #e5e7eb;
+}
+
+.category-item.active {
+  background: #ffffff;
+  color: #111827;
+  font-weight: 600;
+}
+
+.service-list {
+  display: flex;
+  flex-direction: column;
+  padding: 12rpx;
+  gap: 12rpx;
+}
+
+.service-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 76rpx;
+  padding: 14rpx 16rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 10rpx;
+  box-sizing: border-box;
+}
+
+.small-text {
+  font-size: 22rpx;
+}
+
+.selected-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.selected-item {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.selected-info {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 180rpx;
+  gap: 16rpx;
+  align-items: center;
+}
+
+.price-input {
+  min-height: 72rpx;
+}
+
+.remove-btn {
+  margin: 0;
+}
+
+.compact-empty {
+  padding: 28rpx 16rpx;
+}
+
+.calc-panel {
+  border: 1rpx solid #e5e7eb;
+  border-radius: 10rpx;
+  padding: 20rpx;
+  background: #f9fafb;
+}

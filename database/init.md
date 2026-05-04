@@ -7,6 +7,7 @@
 ```text
 owner_whitelist
 members
+service_categories
 services
 recharge_tiers
 card_types
@@ -41,14 +42,29 @@ card_flows
 
 ## 4. 可选初始化数据
 
+### 服务分类
+
+集合：`service_categories`
+
+```json
+{
+  "name": "美甲",
+  "enabled": true,
+  "createdAt": "由控制台填写或留空",
+  "updatedAt": "由控制台填写或留空"
+}
+```
+
 ### 服务项目
 
 集合：`services`
 
 ```json
 {
-  "name": "单色美甲",
-  "priceCent": 19800,
+  "categoryId": "这里填写服务分类 ID",
+  "categoryName": "美甲",
+  "name": "纯色",
+  "isOther": false,
   "enabled": true,
   "remark": "",
   "createdAt": "由控制台填写或留空",

@@ -1,17 +1,19 @@
 const { guardedPage } = require("../../../utils/page");
 const api = require("../../../utils/api");
-const fmt = require("../../../utils/format");
 
 const emptyForm = {
   id: "",
+  categoryId: "",
+  categoryIndex: -1,
+  categoryName: "",
   name: "",
-  priceYuan: "",
   remark: ""
 };
 
 guardedPage({
   data: {
     form: { ...emptyForm },
+    categories: [],
     services: []
   },
 
@@ -20,13 +22,14 @@ guardedPage({
   },
 
   loadData() {
-    api.callBusiness("listServices")
-      .then((services) => {
+    Promise.all([
+      api.callBusiness("listServiceCategories"),
+      api.callBusiness("listServices")
+    ])
+      .then(([categories, services]) => {
         this.setData({
-          services: (services || []).map((item) => ({
-            ...item,
-            priceYuan: fmt.centToYuan(item.priceCent)
-          }))
+          categories: categories || [],
+          services: services || []
         });
       })
       .catch(api.showError);
@@ -38,11 +41,21 @@ guardedPage({
     });
   },
 
+  onCategoryChange(e) {
+    const categoryIndex = Number(e.detail.value);
+    const category = this.data.categories[categoryIndex] || {};
+    this.setData({
+      "form.categoryIndex": categoryIndex,
+      "form.categoryId": category._id || "",
+      "form.categoryName": category.name || ""
+    });
+  },
+
   save() {
     api.callBusiness("saveService", {
       id: this.data.form.id,
+      categoryId: this.data.form.categoryId,
       name: this.data.form.name,
-      priceCent: fmt.yuanInputToCent(this.data.form.priceYuan),
       remark: this.data.form.remark,
       enabled: true
     })
@@ -57,11 +70,14 @@ guardedPage({
   edit(e) {
     const item = this.data.services.find((service) => service._id === e.currentTarget.dataset.id);
     if (!item) return;
+    const categoryIndex = this.data.categories.findIndex((category) => category._id === item.categoryId);
     this.setData({
       form: {
         id: item._id,
+        categoryId: item.categoryId,
+        categoryIndex,
+        categoryName: item.categoryName,
         name: item.name,
-        priceYuan: item.priceYuan,
         remark: item.remark || ""
       }
     });
@@ -80,4 +96,3 @@ guardedPage({
     this.setData({ form: { ...emptyForm } });
   }
 });
-

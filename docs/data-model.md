@@ -38,10 +38,21 @@ updatedAt
 ## services
 
 ```text
+categoryId
+categoryName
 name
-priceCent
+isOther
 enabled
 remark
+createdAt
+updatedAt
+```
+
+## service_categories
+
+```text
+name
+enabled
 createdAt
 updatedAt
 ```
@@ -89,11 +100,26 @@ occurredAt
 businessDate
 memberBefore
 memberAfter
+serviceItems[]
 createdByOpenid
 createdAt
 updatedAt
 voidReason
 voidedAt
+```
+
+`serviceItems` 为消费记录的项目快照，只用于 `guest_consumption` 和 `member_consumption`：
+
+```json
+[
+  {
+    "categoryId": "category_id",
+    "categoryName": "美甲",
+    "serviceId": "service_id",
+    "serviceName": "纯色",
+    "originalAmountCent": 12800
+  }
+]
 ```
 
 `type` 支持：

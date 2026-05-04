@@ -15,6 +15,14 @@
     </view>
   </view>
 
+  <view wx:if="{{record.serviceItems.length > 0}}" class="section panel stack">
+    <view class="sub-title">项目明细</view>
+    <view wx:for="{{record.serviceItems}}" wx:key="key" class="row">
+      <view>{{item.displayName}}</view>
+      <view class="money">¥{{item.priceYuan}}</view>
+    </view>
+  </view>
+
   <view wx:if="{{record.remark}}" class="section panel stack">
     <view class="sub-title">备注</view>
     <view>{{record.remark}}</view>

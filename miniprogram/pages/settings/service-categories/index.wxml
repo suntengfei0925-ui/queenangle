@@ -1,0 +1,29 @@
+<view class="page">
+  <view class="section panel form">
+    <view class="sub-title">{{form.id ? "编辑服务分类" : "新增服务分类"}}</view>
+    <view class="field">
+      <view class="label">分类名称</view>
+      <input class="input" value="{{form.name}}" data-field="name" bindinput="onInput" placeholder="例如 美甲" />
+    </view>
+    <view class="button-row">
+      <button class="primary" bindtap="save">保存</button>
+      <button class="secondary" bindtap="resetForm">清空</button>
+    </view>
+  </view>
+
+  <view class="list">
+    <view class="list-item" wx:for="{{categories}}" wx:key="_id">
+      <view class="row">
+        <view>
+          <view class="sub-title">{{item.name}}</view>
+          <view class="muted">新增分类会自动生成“其他”项目</view>
+        </view>
+        <view class="tag {{item.enabled ? '' : 'gray'}}">{{item.enabled ? "启用" : "停用"}}</view>
+      </view>
+      <view class="button-row">
+        <button class="secondary" size="mini" bindtap="edit" data-id="{{item._id}}">编辑</button>
+        <button class="secondary" size="mini" bindtap="toggle" data-id="{{item._id}}" data-enabled="{{!item.enabled}}">{{item.enabled ? "停用" : "启用"}}</button>
+      </view>
+    </view>
+  </view>
+</view>

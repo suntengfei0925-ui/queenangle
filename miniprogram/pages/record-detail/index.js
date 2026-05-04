@@ -9,14 +9,12 @@ function row(label, value) {
 function buildRows(record) {
   const rows = [
     row("会员", record.memberName),
-    row("项目", record.serviceName),
     row("次卡", record.cardName),
     row("支付方式", fmt.formatPayment(record.paymentMethod))
   ];
 
   if (record.type === "guest_consumption") {
-    rows.push(row("原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
-    rows.push(row("消费金额", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
+    rows.push(row("整单原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
     rows.push(row("实收金额", `¥${fmt.centToYuan(record.actualReceivedCent)}`));
   }
 
@@ -27,7 +25,7 @@ function buildRows(record) {
   }
 
   if (record.type === "member_consumption") {
-    rows.push(row("原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
+    rows.push(row("整单原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
     rows.push(row("折扣", record.discountLabelApplied));
     rows.push(row("消费金额", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
     rows.push(row("余额支付", `¥${fmt.centToYuan(record.balancePayCent)}`));
@@ -47,11 +45,30 @@ function buildRows(record) {
   return rows.filter((item) => item.value !== "-");
 }
 
+function normalizeServiceItems(record) {
+  const items = Array.isArray(record.serviceItems) ? record.serviceItems : [];
+  if (items.length === 0 && record.serviceName) {
+    return [{
+      key: "legacy-service",
+      displayName: record.serviceName,
+      priceYuan: fmt.centToYuan(record.originalAmountCent)
+    }];
+  }
+
+  return items.map((item, index) => ({
+    ...item,
+    key: `${item.serviceId || "service"}-${index}`,
+    displayName: fmt.formatServiceItemName(item),
+    priceYuan: fmt.centToYuan(item.originalAmountCent)
+  }));
+}
+
 guardedPage({
   data: {
     recordId: "",
     record: {
-      status: ""
+      status: "",
+      serviceItems: []
     },
     rows: []
   },
@@ -69,7 +86,8 @@ guardedPage({
           ...record,
           typeText: fmt.formatRecordType(record.type),
           statusText: record.status === "void" ? "已作废" : "有效",
-          timeText: fmt.formatDateTime(record.occurredAt || record.createdAt)
+          timeText: fmt.formatDateTime(record.occurredAt || record.createdAt),
+          serviceItems: normalizeServiceItems(record)
         };
         this.setData({
           record: normalized,

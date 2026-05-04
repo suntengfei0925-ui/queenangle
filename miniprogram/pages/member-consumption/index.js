@@ -12,6 +12,7 @@ function emptyCalc() {
   return {
     balanceYuan: "0.00",
     discountText: "无折扣",
+    originalYuan: "0.00",
     payableYuan: "0.00",
     balancePayYuan: "0.00",
     extraPayYuan: "0.00",
@@ -19,16 +20,37 @@ function emptyCalc() {
   };
 }
 
+function isAmountFilled(value) {
+  return value !== undefined && value !== null && String(value).trim() !== "";
+}
+
+function normalizeCatalog(catalog) {
+  return (catalog || []).filter((category) => (category.services || []).length > 0);
+}
+
+function selectedItem(service, category) {
+  return {
+    key: `${service._id}-${Date.now()}-${Math.random()}`,
+    categoryId: category._id,
+    categoryName: category.name,
+    serviceId: service._id,
+    serviceName: service.name,
+    displayName: `${category.name}-${service.name}`,
+    originalAmountYuan: ""
+  };
+}
+
 guardedPage({
   data: {
     members: [],
-    services: [],
+    categories: [],
+    activeCategoryId: "",
+    activeServices: [],
+    selectedItems: [],
     selectedMember: {},
-    selectedService: {},
     selectedPayment: {},
     paymentMethods,
     form: {
-      originalAmountYuan: "",
       remark: ""
     },
     calc: emptyCalc()
@@ -37,15 +59,19 @@ guardedPage({
   onLoad() {
     Promise.all([
       api.callBusiness("listMembers"),
-      api.callBusiness("listServices", { onlyEnabled: true })
+      api.callBusiness("listServiceCatalog", { onlyEnabled: true })
     ])
-      .then(([members, services]) => {
+      .then(([members, catalog]) => {
+        const categories = normalizeCatalog(catalog);
+        const first = categories[0] || {};
         this.setData({
           members: (members || []).map((item) => ({
             ...item,
             displayName: `${item.name} ${item.phone || ""}`
           })),
-          services: services || []
+          categories,
+          activeCategoryId: first._id || "",
+          activeServices: first.services || []
         });
       })
       .catch(api.showError);
@@ -56,11 +82,37 @@ guardedPage({
     this.refreshCalc();
   },
 
-  onServiceChange(e) {
-    const service = this.data.services[Number(e.detail.value)];
+  selectCategory(e) {
+    const categoryId = e.currentTarget.dataset.id;
+    const category = this.data.categories.find((item) => item._id === categoryId) || {};
     this.setData({
-      selectedService: service,
-      "form.originalAmountYuan": fmt.centToYuan(service.priceCent)
+      activeCategoryId: categoryId,
+      activeServices: category.services || []
+    });
+  },
+
+  addService(e) {
+    const serviceId = e.currentTarget.dataset.id;
+    const category = this.data.categories.find((item) => item._id === this.data.activeCategoryId);
+    if (!category) return;
+    const service = (category.services || []).find((item) => item._id === serviceId);
+    if (!service) return;
+    this.setData({
+      selectedItems: [...this.data.selectedItems, selectedItem(service, category)]
+    });
+    this.refreshCalc();
+  },
+
+  removeItem(e) {
+    const index = Number(e.currentTarget.dataset.index);
+    const selectedItems = this.data.selectedItems.filter((_, itemIndex) => itemIndex !== index);
+    this.setData({ selectedItems });
+    this.refreshCalc();
+  },
+
+  onItemAmountInput(e) {
+    this.setData({
+      [`selectedItems[${e.currentTarget.dataset.index}].originalAmountYuan`]: e.detail.value
     });
     this.refreshCalc();
   },
@@ -73,14 +125,18 @@ guardedPage({
     this.setData({
       [`form.${e.currentTarget.dataset.field}`]: e.detail.value
     });
-    if (e.currentTarget.dataset.field === "originalAmountYuan") {
-      this.refreshCalc();
-    }
+  },
+
+  getOriginalCent() {
+    return this.data.selectedItems.reduce((sum, item) => {
+      if (!isAmountFilled(item.originalAmountYuan)) return sum;
+      return sum + fmt.yuanInputToCent(item.originalAmountYuan);
+    }, 0);
   },
 
   refreshCalc() {
     const member = this.data.selectedMember || {};
-    const originalCent = fmt.yuanInputToCent(this.data.form.originalAmountYuan);
+    const originalCent = this.getOriginalCent();
     const balanceCent = Number(member.balanceCent || 0);
     const discount = balanceCent > 0 ? Number(member.currentDiscount || 0) : 0;
     const payableCent = discount ? Math.round(originalCent * discount / 10) : originalCent;
@@ -91,6 +147,7 @@ guardedPage({
       calc: {
         balanceYuan: fmt.centToYuan(balanceCent),
         discountText: fmt.formatDiscount(discount),
+        originalYuan: fmt.centToYuan(originalCent),
         payableYuan: fmt.centToYuan(payableCent),
         balancePayYuan: fmt.centToYuan(balancePayCent),
         extraPayYuan: fmt.centToYuan(extraPayCent),
@@ -99,17 +156,32 @@ guardedPage({
     });
   },
 
+  validateItems() {
+    if (this.data.selectedItems.length === 0) {
+      api.showError(new Error("请选择至少一个服务项目"));
+      return false;
+    }
+    const hasEmptyAmount = this.data.selectedItems.some((item) => !isAmountFilled(item.originalAmountYuan));
+    if (hasEmptyAmount) {
+      api.showError(new Error("请填写每个项目的单项原价"));
+      return false;
+    }
+    return true;
+  },
+
   submit() {
     if (!this.data.selectedMember._id) return api.showError(new Error("请选择会员"));
-    if (!this.data.selectedService._id) return api.showError(new Error("请选择服务项目"));
+    if (!this.validateItems()) return;
     if (this.data.calc.extraPayCent > 0 && !this.data.selectedPayment.value) {
       return api.showError(new Error("请选择补差价支付方式"));
     }
 
     api.callBusiness("createMemberConsumption", {
       memberId: this.data.selectedMember._id,
-      serviceId: this.data.selectedService._id,
-      originalAmountCent: fmt.yuanInputToCent(this.data.form.originalAmountYuan),
+      serviceItems: this.data.selectedItems.map((item) => ({
+        serviceId: item.serviceId,
+        originalAmountCent: fmt.yuanInputToCent(item.originalAmountYuan)
+      })),
       paymentMethod: this.data.selectedPayment.value,
       extraPaymentMethod: this.data.selectedPayment.value,
       remark: this.data.form.remark
@@ -121,4 +193,3 @@ guardedPage({
       .catch(api.showError);
   }
 });
-

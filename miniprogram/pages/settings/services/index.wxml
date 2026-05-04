@@ -2,12 +2,14 @@
   <view class="section panel form">
     <view class="sub-title">{{form.id ? "编辑服务项目" : "新增服务项目"}}</view>
     <view class="field">
-      <view class="label">项目名称</view>
-      <input class="input" value="{{form.name}}" data-field="name" bindinput="onInput" placeholder="例如 单色美甲" />
+      <view class="label">所属分类</view>
+      <picker mode="selector" range="{{categories}}" range-key="name" bindchange="onCategoryChange" value="{{form.categoryIndex}}">
+        <view class="picker">{{form.categoryName || "请选择服务分类"}}</view>
+      </picker>
     </view>
     <view class="field">
-      <view class="label">标准价格</view>
-      <input class="input" value="{{form.priceYuan}}" data-field="priceYuan" bindinput="onInput" type="digit" placeholder="单位：元" />
+      <view class="label">项目名称</view>
+      <input class="input" value="{{form.name}}" data-field="name" bindinput="onInput" placeholder="例如 纯色" />
     </view>
     <view class="field">
       <view class="label">备注</view>
@@ -23,10 +25,13 @@
     <view class="list-item" wx:for="{{services}}" wx:key="_id">
       <view class="row">
         <view>
-          <view class="sub-title">{{item.name}}</view>
-          <view class="muted">¥{{item.priceYuan}}</view>
+          <view class="sub-title">{{item.categoryName}}-{{item.name}}</view>
+          <view class="muted">
+            <block wx:if="{{item.isOther}}">系统项目</block>
+            <block wx:else>消费次数 {{item.usageCount}}</block>
+          </view>
         </view>
-        <view class="tag {{item.enabled ? '' : 'gray'}}">{{item.enabled ? "启用" : "停用"}}</view>
+        <view class="tag {{item.enabled && item.categoryEnabled ? '' : 'gray'}}">{{item.enabled && item.categoryEnabled ? "启用" : "停用"}}</view>
       </view>
       <view wx:if="{{item.remark}}" class="muted">{{item.remark}}</view>
       <view class="button-row">
@@ -36,4 +41,3 @@
     </view>
   </view>
 </view>
-
