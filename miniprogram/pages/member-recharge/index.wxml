@@ -50,6 +50,7 @@
           <view class="select-option-title">{{item.label}}</view>
         </view>
       </view>
+      <image wx:if="{{selectedPayment.qrCodeSrc}}" class="payment-qr-code" src="{{selectedPayment.qrCodeSrc}}" mode="aspectFit" />
     </view>
     <view wx:if="{{selectedTier._id}}" class="tier-summary">
       <view class="row">

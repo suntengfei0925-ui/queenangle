@@ -51,6 +51,7 @@
           <view class="select-option-title">{{item.label}}</view>
         </view>
       </view>
+      <image wx:if="{{selectedPayment.qrCodeSrc}}" class="payment-qr-code" src="{{selectedPayment.qrCodeSrc}}" mode="aspectFit" />
     </view>
     <view class="field">
       <view class="label">备注</view>

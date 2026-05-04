@@ -1,12 +1,7 @@
 const { guardedPage } = require("../../utils/page");
 const api = require("../../utils/api");
 const fmt = require("../../utils/format");
-
-const paymentMethods = [
-  { value: "wechat", label: "微信" },
-  { value: "alipay", label: "支付宝" },
-  { value: "cash", label: "现金" }
-];
+const { paymentMethods } = require("../../utils/payment");
 
 function emptyCalc() {
   return {

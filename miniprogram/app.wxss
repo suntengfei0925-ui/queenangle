@@ -140,6 +140,17 @@ page {
   color: #047857;
 }
 
+.payment-qr-code {
+  align-self: center;
+  width: 360rpx;
+  height: 360rpx;
+  max-width: 100%;
+  margin-top: 10rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 8rpx;
+  background: #ffffff;
+}
+
 .button-row {
   display: flex;
   gap: 16rpx;
