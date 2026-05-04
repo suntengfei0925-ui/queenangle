@@ -43,7 +43,7 @@ guardedPage({
   },
 
   addMember() {
-    wx.navigateTo({ url: "/pages/member-edit/index" });
+    wx.navigateTo({ url: "/pages/member-edit/index?redirect=detail" });
   },
 
   goDetail(e) {

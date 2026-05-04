@@ -1,9 +1,6 @@
-<view class="page">
+<view class="page select-member-page">
   <view class="section panel stack">
-    <view class="row">
-      <view class="title">会员</view>
-      <button class="primary" size="mini" bindtap="addMember">新增</button>
-    </view>
+    <view class="title">选择会员</view>
     <input class="input" placeholder="按姓名、手机号或后四位搜索" value="{{keyword}}" bindinput="onKeywordInput" confirm-type="search" bindconfirm="loadMembers" />
   </view>
 
@@ -22,6 +19,10 @@
         <view class="muted">次卡 {{item.cardTotal}} 次</view>
       </view>
     </view>
+  </view>
+
+  <view class="fixed-action">
+    <button class="secondary add-member-btn" bindtap="addMember">新建会员</button>
   </view>
 </view>
 

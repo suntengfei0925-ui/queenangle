@@ -35,16 +35,12 @@
         "text": "记一笔"
       },
       {
-        "pagePath": "pages/members/index",
-        "text": "会员"
+        "pagePath": "pages/home/index",
+        "text": "账本"
       },
       {
         "pagePath": "pages/settings/index",
         "text": "设置"
-      },
-      {
-        "pagePath": "pages/home/index",
-        "text": "账本"
       }
     ]
   },

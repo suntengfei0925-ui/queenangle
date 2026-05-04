@@ -1,4 +1,16 @@
 
+.member-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+}
+
 .service-picker {
   display: grid;
   grid-template-columns: 180rpx 1fr;

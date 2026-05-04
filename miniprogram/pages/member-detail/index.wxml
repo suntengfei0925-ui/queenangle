@@ -5,7 +5,7 @@
         <view class="title">{{member.name}}</view>
         <view class="muted">{{member.phone}}</view>
       </view>
-      <button class="secondary" size="mini" bindtap="editMember">编辑</button>
+      <button class="secondary edit-btn" size="mini" bindtap="editMember">编辑</button>
     </view>
     <view class="row">
       <view>
@@ -18,14 +18,30 @@
       </view>
     </view>
     <view wx:if="{{member.remark}}" class="muted">{{member.remark}}</view>
+    <view class="card-summary">
+      <view class="sub-title">次卡明细</view>
+      <view wx:if="{{cards.length === 0}}" class="muted">暂无次卡</view>
+      <view wx:for="{{cards}}" wx:key="cardTypeId" class="row card-row">
+        <view>{{item.cardName}}</view>
+        <view class="money">{{item.remainingTimes}} 次</view>
+      </view>
+    </view>
   </view>
 
-  <view class="section panel stack">
-    <view class="sub-title">次卡</view>
-    <view wx:if="{{cards.length === 0}}" class="muted">暂无次卡</view>
-    <view wx:for="{{cards}}" wx:key="cardTypeId" class="row">
-      <view>{{item.cardName}}</view>
-      <view class="money">{{item.remainingTimes}} 次</view>
+  <view class="section action-grid">
+    <view class="action-card primary-action" bindtap="goMemberConsumption">
+      <view>
+        <view class="action-title">消费结账</view>
+        <view class="action-desc">会员已选好，直接记录本次消费</view>
+      </view>
+      <view class="action-enter">进入</view>
+    </view>
+    <view class="action-card" bindtap="goMemberRecharge">
+      <view>
+        <view class="action-title">充值</view>
+        <view class="action-desc">为当前会员增加余额并更新折扣</view>
+      </view>
+      <view class="action-enter">进入</view>
     </view>
   </view>
 

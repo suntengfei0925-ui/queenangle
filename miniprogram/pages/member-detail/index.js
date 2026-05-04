@@ -59,6 +59,18 @@ guardedPage({
     });
   },
 
+  goMemberConsumption() {
+    wx.navigateTo({
+      url: `/pages/member-consumption/index?memberId=${this.data.memberId}`
+    });
+  },
+
+  goMemberRecharge() {
+    wx.navigateTo({
+      url: `/pages/member-recharge/index?memberId=${this.data.memberId}`
+    });
+  },
+
   goRecord(e) {
     wx.navigateTo({
       url: `/pages/record-detail/index?id=${e.currentTarget.dataset.id}`

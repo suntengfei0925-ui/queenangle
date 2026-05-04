@@ -8,9 +8,19 @@ const paymentMethods = [
   { value: "cash", label: "现金" }
 ];
 
+function normalizeMember(member) {
+  const cardBalances = Array.isArray(member.cardBalances) ? member.cardBalances : [];
+  return {
+    ...member,
+    balanceYuan: fmt.centToYuan(member.balanceCent),
+    discountText: fmt.formatDiscount(member.currentDiscount),
+    cardTotal: cardBalances.reduce((sum, card) => sum + Number(card.remainingTimes || 0), 0)
+  };
+}
+
 guardedPage({
   data: {
-    members: [],
+    memberId: "",
     tiers: [],
     selectedMember: {},
     selectedTier: {},
@@ -21,17 +31,22 @@ guardedPage({
     }
   },
 
-  onLoad() {
+  onLoad(query) {
+    const memberId = query.memberId || query.id || "";
+    this.setData({ memberId });
+    if (!memberId) {
+      api.showError(new Error("请先选择会员"));
+      wx.redirectTo({ url: "/pages/members/index" });
+      return;
+    }
     Promise.all([
-      api.callBusiness("listMembers"),
+      api.callBusiness("getMemberDetail", { memberId }),
       api.callBusiness("listRechargeTiers")
     ])
-      .then(([members, tiers]) => {
+      .then(([detail, tiers]) => {
+        const member = normalizeMember((detail && detail.member) || {});
         this.setData({
-          members: (members || []).map((item) => ({
-            ...item,
-            displayName: `${item.name} ${item.phone || ""}`
-          })),
+          selectedMember: member,
           tiers: (tiers || []).map((item) => ({
             ...item,
             amountYuan: fmt.centToYuan(item.amountCent),
@@ -40,10 +55,6 @@ guardedPage({
         });
       })
       .catch(api.showError);
-  },
-
-  onMemberChange(e) {
-    this.setData({ selectedMember: this.data.members[Number(e.detail.value)] });
   },
 
   onTierChange(e) {
@@ -71,9 +82,21 @@ guardedPage({
     })
       .then(() => {
         wx.showToast({ title: "已记录" });
-        wx.navigateBack();
+        this.returnToMemberDetail();
       })
       .catch(api.showError);
+  },
+
+  returnToMemberDetail() {
+    const pages = getCurrentPages();
+    const previous = pages[pages.length - 2];
+    if (previous && previous.route === "pages/member-detail/index") {
+      wx.navigateBack();
+      return;
+    }
+    wx.redirectTo({
+      url: `/pages/member-detail/index?id=${this.data.memberId}`
+    });
   }
 });
 

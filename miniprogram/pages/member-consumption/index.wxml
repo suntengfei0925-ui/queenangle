@@ -1,12 +1,27 @@
 <view class="page">
-  <view class="panel form">
-    <view class="field">
-      <view class="label">会员</view>
-      <picker mode="selector" range="{{members}}" range-key="displayName" bindchange="onMemberChange">
-        <view class="picker">{{selectedMember.displayName || "请选择会员"}}</view>
-      </picker>
+  <view class="section panel member-summary">
+    <view>
+      <view class="label">已选会员</view>
+      <view class="sub-title">{{selectedMember.name}}</view>
+      <view class="muted">{{selectedMember.phone}}</view>
     </view>
+    <view class="summary-grid">
+      <view>
+        <view class="muted">当前余额</view>
+        <view class="money">¥{{selectedMember.balanceYuan}}</view>
+      </view>
+      <view>
+        <view class="muted">当前折扣</view>
+        <view>{{selectedMember.discountText}}</view>
+      </view>
+      <view>
+        <view class="muted">次卡</view>
+        <view>{{selectedMember.cardTotal}} 次</view>
+      </view>
+    </view>
+  </view>
 
+  <view class="panel form">
     <view class="field">
       <view class="label">消费项目</view>
       <view class="service-picker">

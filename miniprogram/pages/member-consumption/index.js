@@ -40,9 +40,19 @@ function selectedItem(service, category) {
   };
 }
 
+function normalizeMember(member) {
+  const cardBalances = Array.isArray(member.cardBalances) ? member.cardBalances : [];
+  return {
+    ...member,
+    balanceYuan: fmt.centToYuan(member.balanceCent),
+    discountText: fmt.formatDiscount(member.currentDiscount),
+    cardTotal: cardBalances.reduce((sum, card) => sum + Number(card.remainingTimes || 0), 0)
+  };
+}
+
 guardedPage({
   data: {
-    members: [],
+    memberId: "",
     categories: [],
     activeCategoryId: "",
     activeServices: [],
@@ -56,30 +66,31 @@ guardedPage({
     calc: emptyCalc()
   },
 
-  onLoad() {
+  onLoad(query) {
+    const memberId = query.memberId || query.id || "";
+    this.setData({ memberId });
+    if (!memberId) {
+      api.showError(new Error("请先选择会员"));
+      wx.redirectTo({ url: "/pages/members/index" });
+      return;
+    }
     Promise.all([
-      api.callBusiness("listMembers"),
+      api.callBusiness("getMemberDetail", { memberId }),
       api.callBusiness("listServiceCatalog", { onlyEnabled: true })
     ])
-      .then(([members, catalog]) => {
+      .then(([detail, catalog]) => {
+        const member = normalizeMember((detail && detail.member) || {});
         const categories = normalizeCatalog(catalog);
         const first = categories[0] || {};
         this.setData({
-          members: (members || []).map((item) => ({
-            ...item,
-            displayName: `${item.name} ${item.phone || ""}`
-          })),
+          selectedMember: member,
           categories,
           activeCategoryId: first._id || "",
           activeServices: first.services || []
         });
+        this.refreshCalc();
       })
       .catch(api.showError);
-  },
-
-  onMemberChange(e) {
-    this.setData({ selectedMember: this.data.members[Number(e.detail.value)] });
-    this.refreshCalc();
   },
 
   selectCategory(e) {
@@ -188,8 +199,20 @@ guardedPage({
     })
       .then(() => {
         wx.showToast({ title: "已记录" });
-        wx.navigateBack();
+        this.returnToMemberDetail();
       })
       .catch(api.showError);
+  },
+
+  returnToMemberDetail() {
+    const pages = getCurrentPages();
+    const previous = pages[pages.length - 2];
+    if (previous && previous.route === "pages/member-detail/index") {
+      wx.navigateBack();
+      return;
+    }
+    wx.redirectTo({
+      url: `/pages/member-detail/index?id=${this.data.memberId}`
+    });
   }
 });
