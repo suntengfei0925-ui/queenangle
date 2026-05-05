@@ -9,7 +9,6 @@
     "pages/member-consumption/index",
     "pages/member-recharge/index",
     "pages/card-purchase/index",
-    "pages/card-use/index",
     "pages/member-detail/index",
     "pages/member-edit/index",
     "pages/settings/services/index",

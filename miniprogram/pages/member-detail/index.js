@@ -22,7 +22,7 @@ function normalizeRecord(item) {
     statusText: item.status === "void" ? "已作废" : "有效",
     timeText: fmt.formatDateTime(item.occurredAt || item.createdAt),
     actualReceivedYuan: fmt.centToYuan(item.actualReceivedCent),
-    nameLine: initialLine || fmt.formatServiceSummary(item) || item.cardName || item.discountLabel || ""
+    nameLine: initialLine || fmt.formatRecordSummary(item) || item.cardName || item.discountLabel || ""
   };
 }
 

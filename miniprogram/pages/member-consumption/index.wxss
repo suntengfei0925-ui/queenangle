@@ -10,6 +10,32 @@
   gap: 16rpx;
 }
 
+.card-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.card-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  min-height: 84rpx;
+  box-sizing: border-box;
+  border: 2rpx solid #d1d5db;
+  border-radius: 10rpx;
+  background: #ffffff;
+  padding: 18rpx 20rpx;
+}
+
+.card-option.active {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+}
+
 .service-picker {
   display: grid;
   grid-template-columns: 168rpx 1fr;
@@ -89,6 +115,10 @@
   grid-template-columns: minmax(0, 1fr) 180rpx;
   gap: 16rpx;
   align-items: center;
+}
+
+.selected-card-info {
+  grid-template-columns: minmax(0, 1fr) 140rpx;
 }
 
 .price-input {

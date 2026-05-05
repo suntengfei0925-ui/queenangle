@@ -15,6 +15,14 @@
     </view>
   </view>
 
+  <view wx:if="{{record.cardItems.length > 0}}" class="section panel stack">
+    <view class="sub-title">次卡明细</view>
+    <view wx:for="{{record.cardItems}}" wx:key="key" class="row">
+      <view>{{item.cardName}}</view>
+      <view class="money">扣 {{item.useTimes}} 次，剩余 {{item.remainingTimesAfter}} 次</view>
+    </view>
+  </view>
+
   <view wx:if="{{record.serviceItems.length > 0}}" class="section panel stack">
     <view class="sub-title">项目明细</view>
     <view wx:for="{{record.serviceItems}}" wx:key="key" class="row">

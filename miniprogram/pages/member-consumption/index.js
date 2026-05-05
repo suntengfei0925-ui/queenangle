@@ -45,16 +45,28 @@ function normalizeMember(member) {
   };
 }
 
+function cardBalancesToOptions(cardBalances) {
+  return (Array.isArray(cardBalances) ? cardBalances : [])
+    .filter((card) => Number(card.remainingTimes || 0) > 0)
+    .map((card) => ({
+      ...card,
+      selected: false
+    }));
+}
+
 guardedPage({
   data: {
     memberId: "",
     categories: [],
     activeCategoryId: "",
     activeServices: [],
+    availableCards: [],
+    selectedCards: [],
     selectedItems: [],
     selectedMember: {},
     selectedPayment: {},
     paymentMethods,
+    saving: false,
     form: {
       remark: ""
     },
@@ -79,6 +91,8 @@ guardedPage({
         const first = categories[0] || {};
         this.setData({
           selectedMember: member,
+          availableCards: cardBalancesToOptions(member.cardBalances),
+          selectedCards: [],
           categories,
           activeCategoryId: first._id || "",
           activeServices: first.services || []
@@ -107,6 +121,19 @@ guardedPage({
       selectedItems: [...this.data.selectedItems, selectedItem(service, category)]
     });
     this.refreshCalc();
+  },
+
+  toggleCard(e) {
+    const cardTypeId = e.currentTarget.dataset.id;
+    const availableCards = this.data.availableCards.map((card) => (
+      card.cardTypeId === cardTypeId
+        ? { ...card, selected: !card.selected }
+        : card
+    ));
+    this.setData({
+      availableCards,
+      selectedCards: availableCards.filter((card) => card.selected)
+    });
   },
 
   removeItem(e) {
@@ -162,9 +189,9 @@ guardedPage({
     });
   },
 
-  validateItems() {
-    if (this.data.selectedItems.length === 0) {
-      api.showError(new Error("请选择至少一个服务项目"));
+  validateCheckout() {
+    if (this.data.selectedItems.length === 0 && this.data.selectedCards.length === 0) {
+      api.showError(new Error("请选择次卡或服务项目"));
       return false;
     }
     const hasEmptyAmount = this.data.selectedItems.some((item) => !isAmountFilled(item.originalAmountYuan));
@@ -176,14 +203,19 @@ guardedPage({
   },
 
   submit() {
+    if (this.data.saving) return;
     if (!this.data.selectedMember._id) return api.showError(new Error("请选择会员"));
-    if (!this.validateItems()) return;
+    if (!this.validateCheckout()) return;
     if (this.data.calc.extraPayCent > 0 && !this.data.selectedPayment.value) {
       return api.showError(new Error("请选择补差价支付方式"));
     }
 
-    api.callBusiness("createMemberConsumption", {
+    this.setData({ saving: true });
+    api.callBusiness("createMemberCheckout", {
       memberId: this.data.selectedMember._id,
+      cardItems: this.data.selectedCards.map((card) => ({
+        cardTypeId: card.cardTypeId
+      })),
       serviceItems: this.data.selectedItems.map((item) => ({
         serviceId: item.serviceId,
         originalAmountCent: fmt.yuanInputToCent(item.originalAmountYuan)
@@ -196,7 +228,10 @@ guardedPage({
         wx.showToast({ title: "已记录" });
         this.returnToMemberDetail();
       })
-      .catch(api.showError);
+      .catch((err) => {
+        this.setData({ saving: false });
+        api.showError(err);
+      });
   },
 
   returnToMemberDetail() {

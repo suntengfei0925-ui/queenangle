@@ -33,11 +33,11 @@ function formatPayment(value) {
 function formatRecordType(value) {
   const map = {
     guest_consumption: "散客消费",
+    member_checkout: "会员结账",
     member_consumption: "会员消费",
     member_recharge: "会员充值",
     member_initial_balance: "初始余额",
     card_purchase: "次卡购买",
-    card_use: "次卡核销"
   };
   return map[value] || value || "-";
 }
@@ -67,6 +67,22 @@ function formatServiceSummary(record) {
   return record && record.serviceName ? record.serviceName : "";
 }
 
+function formatCheckoutSummary(record) {
+  const cardItems = record && Array.isArray(record.cardItems) ? record.cardItems : [];
+  const serviceItems = record && Array.isArray(record.serviceItems) ? record.serviceItems : [];
+  const cardText = cardItems.map((item) => item.cardName).filter(Boolean).join("、");
+  const serviceText = serviceItems.map(formatServiceItemName).filter((name) => name && name !== "-").join("、");
+  if (cardText && serviceText) return `次卡：${cardText}；项目：${serviceText}`;
+  if (cardText) return `使用次卡：${cardText}`;
+  if (serviceText) return `项目：${serviceText}`;
+  return "";
+}
+
+function formatRecordSummary(record) {
+  if (record && record.type === "member_checkout") return formatCheckoutSummary(record);
+  return formatServiceSummary(record);
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -84,6 +100,8 @@ module.exports = {
   formatBalanceFlowType,
   formatServiceItemName,
   formatServiceSummary,
+  formatCheckoutSummary,
+  formatRecordSummary,
   formatDateTime
 };
 

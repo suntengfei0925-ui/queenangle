@@ -12,6 +12,7 @@ function formatOfflineTrace(record) {
 }
 
 function buildRows(record) {
+  const hasServiceItems = Array.isArray(record.serviceItems) && record.serviceItems.length > 0;
   const rows = [
     row("会员", record.memberName),
     row("次卡", record.cardName),
@@ -45,14 +46,20 @@ function buildRows(record) {
     rows.push(row("补差价支付方式", fmt.formatPayment(record.extraPaymentMethod)));
   }
 
+  if (record.type === "member_checkout" && hasServiceItems) {
+    rows.push(row("整单原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
+    rows.push(row("折扣", record.discountLabelApplied));
+    rows.push(row("消费金额", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
+    rows.push(row("余额支付", `¥${fmt.centToYuan(record.balancePayCent)}`));
+    rows.push(row("补差价", `¥${fmt.centToYuan(record.extraPayCent)}`));
+    rows.push(row("补差价支付方式", fmt.formatPayment(record.extraPaymentMethod)));
+  }
+
   if (record.type === "card_purchase") {
     rows.push(row("购买次数", `${record.purchaseTimes || 0} 次`));
     rows.push(row("实收金额", `¥${fmt.centToYuan(record.actualReceivedCent)}`));
   }
 
-  if (record.type === "card_use") {
-    rows.push(row("核销次数", `${record.useTimes || 0} 次`));
-  }
 
   return rows.filter((item) => item.value !== "-");
 }
@@ -75,11 +82,22 @@ function normalizeServiceItems(record) {
   }));
 }
 
+function normalizeCardItems(record) {
+  const items = Array.isArray(record.cardItems) ? record.cardItems : [];
+  return items.map((item, index) => ({
+    ...item,
+    key: `${item.cardTypeId || "card"}-${index}`,
+    useTimes: Number(item.useTimes || 1),
+    remainingTimesAfter: Number(item.remainingTimesAfter || 0)
+  }));
+}
+
 guardedPage({
   data: {
     recordId: "",
     record: {
       status: "",
+      cardItems: [],
       serviceItems: []
     },
     rows: []
@@ -99,7 +117,8 @@ guardedPage({
           typeText: fmt.formatRecordType(record.type),
           statusText: record.status === "void" ? "已作废" : "有效",
           timeText: fmt.formatDateTime(record.occurredAt || record.createdAt),
-          serviceItems: normalizeServiceItems(record)
+          serviceItems: normalizeServiceItems(record),
+          cardItems: normalizeCardItems(record)
         };
         this.setData({
           record: normalized,

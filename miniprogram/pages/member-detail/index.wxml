@@ -41,8 +41,8 @@
   <view class="section action-grid">
     <view class="action-card primary-action" bindtap="goMemberConsumption">
       <view>
-        <view class="action-title">消费结账</view>
-        <view class="action-desc">会员已选好，直接记录本次消费</view>
+        <view class="action-title">会员结账</view>
+        <view class="action-desc">记录普通项目、次卡和余额支付</view>
       </view>
       <view class="action-enter">进入</view>
     </view>

@@ -135,10 +135,10 @@ voidedAt
 ```text
 guest_consumption
 member_consumption
+member_checkout
 member_recharge
 member_initial_balance
 card_purchase
-card_use
 ```
 
 `importRemark` 为系统自动生成的补录备注，不由页面手动输入。
@@ -154,6 +154,22 @@ discountLabel
 offlineBook
 offlinePage
 remark
+```
+
+`member_checkout` 用于会员结账，可同时包含普通项目和次卡。核心字段：
+
+```text
+serviceItems[]
+cardItems[]
+originalAmountCent
+consumptionAmountCent
+balancePayCent
+extraPayCent
+actualReceivedCent
+paymentMethod
+extraPaymentMethod
+discountApplied
+discountLabelApplied
 ```
 
 `status` 支持：

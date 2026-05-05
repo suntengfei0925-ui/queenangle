@@ -748,6 +748,62 @@ function sumServiceItems(items) {
   return (items || []).reduce((sum, item) => sum + toCent(item.originalAmountCent), 0);
 }
 
+async function buildCheckoutServiceItemSnapshots(event, context) {
+  const inputs = normalizeServiceItemInputs(event);
+  if (inputs.length === 0) return [];
+  return buildServiceItemSnapshots(event, context);
+}
+
+function normalizeCheckoutCardInputs(event) {
+  const rawItems = Array.isArray(event.cardItems) ? event.cardItems : [];
+  const rawIds = Array.isArray(event.cardTypeIds)
+    ? event.cardTypeIds.map((cardTypeId) => ({ cardTypeId }))
+    : [];
+  const inputs = rawItems.length > 0 ? rawItems : rawIds;
+  const seen = {};
+
+  return inputs.map((item) => {
+    const cardTypeId = normalizeText(item && item.cardTypeId);
+    if (!cardTypeId) throw error("VALIDATION_ERROR", "次卡不能为空");
+    if (seen[cardTypeId]) throw error("VALIDATION_ERROR", "次卡不能重复选择");
+    seen[cardTypeId] = true;
+    return { cardTypeId };
+  });
+}
+
+function applyCheckoutCardUses(cardBalances, cardInputs) {
+  const list = Array.isArray(cardBalances) ? cardBalances.map((item) => ({ ...item })) : [];
+  const cardItems = [];
+
+  cardInputs.forEach((input) => {
+    const index = list.findIndex((item) => item.cardTypeId === input.cardTypeId);
+    if (index < 0) throw error("CARD_NOT_FOUND", "会员没有该次卡");
+
+    const card = list[index];
+    const remainingTimes = Number(card.remainingTimes || 0);
+    if (!Number.isFinite(remainingTimes) || remainingTimes <= 0) {
+      throw error("CARD_NOT_ENOUGH", "次卡剩余次数不足");
+    }
+
+    const remainingTimesAfter = remainingTimes - 1;
+    list[index] = {
+      ...card,
+      remainingTimes: remainingTimesAfter
+    };
+    cardItems.push({
+      cardTypeId: card.cardTypeId,
+      cardName: card.cardName,
+      useTimes: 1,
+      remainingTimesAfter
+    });
+  });
+
+  return {
+    cardBalances: list,
+    cardItems
+  };
+}
+
 async function listRechargeTiers() {
   await assertOwner();
   const res = await db.collection(C.TIERS).orderBy("amountCent", "asc").limit(100).get();
@@ -941,22 +997,28 @@ async function createMemberRecharge(event) {
   });
 }
 
-async function createMemberConsumption(event) {
+async function createMemberCheckout(event) {
   const openid = await assertOwner();
   const memberId = event.memberId;
   const occurredAt = parseDate(event.occurredAt);
 
   return db.runTransaction(async (transaction) => {
     const member = await getById(transaction.collection(C.MEMBERS), memberId, "会员不存在");
-    const serviceItems = await buildServiceItemSnapshots(event, transaction);
+    const serviceItems = await buildCheckoutServiceItemSnapshots(event, transaction);
+    const cardInputs = normalizeCheckoutCardInputs(event);
+    if (serviceItems.length === 0 && cardInputs.length === 0) {
+      throw error("VALIDATION_ERROR", "请选择次卡或服务项目");
+    }
+
     const originalAmountCent = sumServiceItems(serviceItems);
-    const firstItem = serviceItems[0];
+    const firstItem = serviceItems[0] || {};
     const serviceName = summarizeServiceItems(serviceItems);
     const before = pickMemberState(member);
+    const cardResult = applyCheckoutCardUses(before.cardBalances, cardInputs);
 
     let payableCent = originalAmountCent;
     const hasBalance = before.balanceCent > 0;
-    const discount = hasBalance ? before.currentDiscount : null;
+    const discount = originalAmountCent > 0 && hasBalance ? before.currentDiscount : null;
 
     if (hasBalance && discount) {
       payableCent = Math.round(originalAmountCent * discount / 10);
@@ -970,26 +1032,31 @@ async function createMemberConsumption(event) {
     }
 
     const balanceAfterCent = before.balanceCent - balancePayCent;
+    const shouldClearDiscount = originalAmountCent > 0 && balanceAfterCent <= 0;
     const after = {
       ...before,
       balanceCent: balanceAfterCent,
-      currentDiscount: balanceAfterCent > 0 ? before.currentDiscount : null,
-      currentDiscountLabel: balanceAfterCent > 0 ? before.currentDiscountLabel : "无折扣"
+      currentDiscount: shouldClearDiscount ? null : before.currentDiscount,
+      currentDiscountLabel: shouldClearDiscount ? "无折扣" : before.currentDiscountLabel,
+      cardBalances: cardResult.cardBalances
     };
 
-    const paymentMethod = balancePayCent > 0 && extraPayCent > 0
+    const paymentMethod = originalAmountCent <= 0
+      ? ""
+      : balancePayCent > 0 && extraPayCent > 0
       ? "mixed"
       : balancePayCent > 0 ? "member_balance" : (event.paymentMethod || event.extraPaymentMethod);
 
     const recordRes = await transaction.collection(C.RECORDS).add({
       data: {
-        type: "member_consumption",
+        type: "member_checkout",
         status: "active",
         memberId,
         memberName: member.name,
-        serviceId: firstItem.serviceId,
+        serviceId: firstItem.serviceId || "",
         serviceName,
         serviceItems,
+        cardItems: cardResult.cardItems,
         originalAmountCent,
         consumptionAmountCent: payableCent,
         actualReceivedCent: extraPayCent,
@@ -998,7 +1065,7 @@ async function createMemberConsumption(event) {
         paymentMethod,
         extraPaymentMethod: extraPayCent > 0 ? (event.extraPaymentMethod || event.paymentMethod) : "",
         discountApplied: discount,
-        discountLabelApplied: discountLabel(discount),
+        discountLabelApplied: originalAmountCent > 0 ? discountLabel(discount) : "",
         memberBefore: before,
         memberAfter: after,
         remark: normalizeText(event.remark),
@@ -1015,6 +1082,7 @@ async function createMemberConsumption(event) {
         balanceCent: after.balanceCent,
         currentDiscount: after.currentDiscount,
         currentDiscountLabel: after.currentDiscountLabel,
+        cardBalances: after.cardBalances,
         updatedAt: db.serverDate()
       }
     });
@@ -1034,8 +1102,29 @@ async function createMemberConsumption(event) {
       });
     }
 
+    for (const cardItem of cardResult.cardItems) {
+      await transaction.collection(C.CARD_FLOWS).add({
+        data: {
+          memberId,
+          memberName: member.name,
+          type: "use",
+          sourceRecordId: recordRes._id,
+          cardTypeId: cardItem.cardTypeId,
+          cardName: cardItem.cardName,
+          deltaTimes: -cardItem.useTimes,
+          remainingTimes: cardItem.remainingTimesAfter,
+          remark: normalizeText(event.remark),
+          createdAt: db.serverDate()
+        }
+      });
+    }
+
     return { recordId: recordRes._id };
   });
+}
+
+async function createMemberConsumption(event) {
+  return createMemberCheckout(event);
 }
 
 function updateCardBalances(cardBalances, cardType, deltaTimes) {
@@ -1118,7 +1207,7 @@ function replayMemberState(records, ignoredRecordId) {
       state.currentDiscountLabel = record.discountLabel || discountLabel(record.discount);
     }
 
-    if (record.type === "member_consumption") {
+    if ((record.type === "member_consumption" || record.type === "member_checkout") && toCent(record.originalAmountCent) > 0) {
       const originalAmountCent = toCent(record.originalAmountCent);
       const payableCent = state.balanceCent > 0 && state.currentDiscount
         ? Math.round(originalAmountCent * state.currentDiscount / 10)
@@ -1132,13 +1221,16 @@ function replayMemberState(records, ignoredRecordId) {
       }
     }
 
+    if (record.type === "member_checkout") {
+      (record.cardItems || []).forEach((item) => {
+        applyCardDelta(state, item.cardTypeId, item.cardName, -Number(item.useTimes || 1));
+      });
+    }
+
     if (record.type === "card_purchase") {
       applyCardDelta(state, record.cardTypeId, record.cardName, Number(record.purchaseTimes || 0));
     }
 
-    if (record.type === "card_use") {
-      applyCardDelta(state, record.cardTypeId, record.cardName, -Number(record.useTimes || 0));
-    }
   });
 
   return state;
@@ -1203,73 +1295,6 @@ async function createCardPurchase(event) {
         cardName: cardType.name,
         deltaTimes: purchaseTimes,
         remainingTimes: after.cardBalances.find((item) => item.cardTypeId === cardType._id).remainingTimes,
-        remark: normalizeText(event.remark),
-        createdAt: db.serverDate()
-      }
-    });
-
-    return { recordId: recordRes._id };
-  });
-}
-
-async function createCardUse(event) {
-  const openid = await assertOwner();
-  const occurredAt = parseDate(event.occurredAt);
-
-  return db.runTransaction(async (transaction) => {
-    const member = await getById(transaction.collection(C.MEMBERS), event.memberId, "会员不存在");
-    const cardType = await getById(transaction.collection(C.CARD_TYPES), event.cardTypeId, "次卡类型不存在");
-    const before = pickMemberState(member);
-    const useTimes = Number(event.useTimes || 1);
-
-    if (!Number.isInteger(useTimes) || useTimes <= 0) throw error("VALIDATION_ERROR", "核销次数必须大于 0");
-
-    const after = {
-      ...before,
-      cardBalances: updateCardBalances(before.cardBalances, cardType, -useTimes)
-    };
-    const cardAfter = after.cardBalances.find((item) => item.cardTypeId === cardType._id);
-
-    const recordRes = await transaction.collection(C.RECORDS).add({
-      data: {
-        type: "card_use",
-        status: "active",
-        memberId: event.memberId,
-        memberName: member.name,
-        cardTypeId: cardType._id,
-        cardName: cardType.name,
-        useTimes,
-        actualReceivedCent: 0,
-        consumptionAmountCent: 0,
-        paymentMethod: "",
-        memberBefore: before,
-        memberAfter: after,
-        remark: normalizeText(event.remark),
-        occurredAt,
-        businessDate: businessDate(occurredAt),
-        createdByOpenid: openid,
-        createdAt: db.serverDate(),
-        updatedAt: db.serverDate()
-      }
-    });
-
-    await transaction.collection(C.MEMBERS).doc(event.memberId).update({
-      data: {
-        cardBalances: after.cardBalances,
-        updatedAt: db.serverDate()
-      }
-    });
-
-    await transaction.collection(C.CARD_FLOWS).add({
-      data: {
-        memberId: event.memberId,
-        memberName: member.name,
-        type: "use",
-        sourceRecordId: recordRes._id,
-        cardTypeId: cardType._id,
-        cardName: cardType.name,
-        deltaTimes: -useTimes,
-        remainingTimes: cardAfter ? cardAfter.remainingTimes : 0,
         remark: normalizeText(event.remark),
         createdAt: db.serverDate()
       }
@@ -1377,10 +1402,10 @@ async function replaceTodayRecord(event) {
   const payload = event.payload || {};
   const actionMap = {
     guest_consumption: createGuestConsumption,
+    member_checkout: createMemberCheckout,
     member_consumption: createMemberConsumption,
     member_recharge: createMemberRecharge,
-    card_purchase: createCardPurchase,
-    card_use: createCardUse
+    card_purchase: createCardPurchase
   };
   const fn = actionMap[payload.type || record.type];
   if (!fn) throw error("VALIDATION_ERROR", "不支持的记录类型");
@@ -1404,10 +1429,10 @@ const actions = {
   saveCardType,
   toggleCardType,
   createGuestConsumption,
+  createMemberCheckout,
   createMemberRecharge,
   createMemberConsumption,
   createCardPurchase,
-  createCardUse,
   listTodayRecords,
   getHomeSummary,
   getRecord,
