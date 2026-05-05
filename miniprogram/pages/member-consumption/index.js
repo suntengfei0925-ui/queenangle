@@ -6,6 +6,8 @@ const signatureUtils = require("../../utils/signature");
 const { paymentMethods } = require("../../utils/payment");
 const servicePerson = require("../../utils/service-person");
 
+const SHORTAGE_EXTRA_PAY_RULE = "balance_discount_cover_original_v1";
+
 function emptyCalc() {
   return {
     balanceYuan: "0.00",
@@ -13,9 +15,15 @@ function emptyCalc() {
     originalYuan: "0.00",
     payableYuan: "0.00",
     balancePayYuan: "0.00",
+    balanceCoveredOriginalYuan: "0.00",
+    remainingOriginalYuan: "0.00",
     extraPayYuan: "0.00",
+    settlementAmountYuan: "0.00",
+    settlementFormulaText: "",
     balanceAfterYuan: "0.00",
-    extraPayCent: 0
+    shortageExplanation: "",
+    extraPayCent: 0,
+    hasShortageExtraPay: false
   };
 }
 
@@ -74,24 +82,111 @@ function cardBalancesToOptions(cardBalances) {
     }));
 }
 
+function normalizeCent(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.max(0, Math.round(num));
+}
+
+function normalizeDiscountForCalc(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0 || num >= 10) return null;
+  return Math.round(num * 100) / 100;
+}
+
+function roundCentToJiao(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num / 10) * 10;
+}
+
+function baseCheckoutResult(balanceCent, discount, originalCent, memberPriceCent) {
+  return {
+    balanceCent,
+    discount,
+    originalAmountCent: originalCent,
+    payableCent: memberPriceCent,
+    balancePayCent: 0,
+    extraPayCent: 0,
+    balanceCoveredOriginalCent: 0,
+    remainingOriginalCent: originalCent,
+    settlementAmountCent: 0,
+    balanceAfterCent: balanceCent,
+    shortageExtraPayRule: "",
+    hasShortageExtraPay: false
+  };
+}
+
 function calculateCheckout(member, originalCent) {
-  const balanceCent = Number((member && member.balanceCent) || 0);
-  const hasBalance = balanceCent > 0;
-  const discount = originalCent > 0 && hasBalance ? Number(member.currentDiscount || 0) : 0;
-  const payableCent = hasBalance && discount
-    ? Math.round(originalCent * discount / 10)
-    : originalCent;
-  const balancePayCent = Math.min(balanceCent, payableCent);
-  const extraPayCent = payableCent - balancePayCent;
+  const balanceCent = normalizeCent(member && member.balanceCent);
+  const amountCent = normalizeCent(originalCent);
+  const discount = amountCent > 0 && balanceCent > 0
+    ? normalizeDiscountForCalc(member && member.currentDiscount)
+    : null;
+  const discountRate = discount ? discount / 10 : 1;
+  const memberPriceCent = discount ? Math.round(amountCent * discountRate) : amountCent;
+
+  if (amountCent <= 0) {
+    return baseCheckoutResult(balanceCent, discount, 0, 0);
+  }
+
+  if (balanceCent <= 0) {
+    return {
+      ...baseCheckoutResult(0, null, amountCent, amountCent),
+      extraPayCent: amountCent,
+      settlementAmountCent: amountCent,
+      balanceAfterCent: 0
+    };
+  }
+
+  if (balanceCent >= memberPriceCent) {
+    return {
+      ...baseCheckoutResult(balanceCent, discount, amountCent, memberPriceCent),
+      balancePayCent: memberPriceCent,
+      balanceCoveredOriginalCent: amountCent,
+      remainingOriginalCent: 0,
+      settlementAmountCent: memberPriceCent,
+      balanceAfterCent: balanceCent - memberPriceCent
+    };
+  }
+
+  const balancePayCent = balanceCent;
+  const balanceCoveredOriginalCent = Math.min(amountCent, roundCentToJiao(balanceCent / discountRate));
+  const rawRemainingOriginalCent = Math.max(0, amountCent - balanceCoveredOriginalCent);
+  const extraPayCent = Math.max(0, roundCentToJiao(rawRemainingOriginalCent));
+  const remainingOriginalCent = extraPayCent;
+  const hasShortageExtraPay = extraPayCent > 0;
 
   return {
     balanceCent,
-    discount: discount || null,
-    payableCent,
+    discount,
+    originalAmountCent: amountCent,
+    payableCent: memberPriceCent,
     balancePayCent,
     extraPayCent,
-    balanceAfterCent: balanceCent - balancePayCent
+    balanceCoveredOriginalCent,
+    remainingOriginalCent,
+    settlementAmountCent: balancePayCent + extraPayCent,
+    balanceAfterCent: balanceCent - balancePayCent,
+    shortageExtraPayRule: hasShortageExtraPay ? SHORTAGE_EXTRA_PAY_RULE : "",
+    hasShortageExtraPay
   };
+}
+
+function buildShortageExplanation(calc) {
+  if (!calc || !calc.hasShortageExtraPay) return "";
+  const balanceText = fmt.centToYuan(calc.balancePayCent);
+  const coveredText = fmt.centToYuan(calc.balanceCoveredOriginalCent);
+  const remainingText = fmt.centToYuan(calc.remainingOriginalCent);
+  if (calc.discount) {
+    return `当前余额 ¥${balanceText} 按 ${fmt.formatDiscount(calc.discount)} 可抵扣原价 ¥${coveredText}，剩余原价 ¥${remainingText} 需补差。`;
+  }
+  return `当前余额 ¥${balanceText} 可抵扣原价 ¥${coveredText}，剩余原价 ¥${remainingText} 需补差。`;
+}
+
+function buildSettlementFormula(calc) {
+  if (!calc || calc.extraPayCent <= 0) return "";
+  return `${fmt.centToYuan(calc.balancePayCent)} + ${fmt.centToYuan(calc.extraPayCent)} = ${fmt.centToYuan(calc.settlementAmountCent)}`;
 }
 
 function buildCheckoutPaymentMethod(originalCent, balancePayCent, extraPayCent, selectedPayment) {
@@ -121,18 +216,43 @@ function buildConfirmationView(snapshot) {
     remainingTimesAfter: Number(item.remainingTimesAfter || 0)
   }));
 
+  const hasShortageExtraPay = !!snapshot.shortageExtraPayRule && Number(snapshot.extraPayCent || 0) > 0;
+  const balanceCoveredOriginalCent = Number(snapshot.balanceCoveredOriginalCent || 0);
+  const remainingOriginalCent = hasShortageExtraPay
+    ? Number(snapshot.extraPayCent || 0)
+    : Math.max(0, Number(snapshot.originalAmountCent || 0) - balanceCoveredOriginalCent);
+  const settlementAmountCent = snapshot.settlementAmountCent === undefined
+    ? Number(snapshot.balancePayCent || 0) + Number(snapshot.extraPayCent || 0)
+    : Number(snapshot.settlementAmountCent || 0);
+  const shortageExplanation = buildShortageExplanation({
+    hasShortageExtraPay,
+    balancePayCent: Number(snapshot.balancePayCent || 0),
+    balanceCoveredOriginalCent,
+    remainingOriginalCent,
+    discount: snapshot.discountApplied || null
+  });
+
   return {
     hasServiceItems: serviceItems.length > 0,
     serviceItems,
     cardItems,
     balanceBeforeYuan: fmt.centToYuan(snapshot.balanceBeforeCent),
     balancePayYuan: fmt.centToYuan(snapshot.balancePayCent),
+    balanceCoveredOriginalYuan: fmt.centToYuan(balanceCoveredOriginalCent),
     balanceAfterYuan: fmt.centToYuan(snapshot.balanceAfterCent),
     servicePersonName: snapshot.servicePersonName || "-",
     originalYuan: fmt.centToYuan(snapshot.originalAmountCent),
     discountText: snapshot.discountLabelApplied || "无折扣",
     payableYuan: fmt.centToYuan(snapshot.consumptionAmountCent),
     extraPayYuan: fmt.centToYuan(snapshot.extraPayCent),
+    settlementAmountYuan: fmt.centToYuan(settlementAmountCent),
+    settlementFormulaText: buildSettlementFormula({
+      balancePayCent: Number(snapshot.balancePayCent || 0),
+      extraPayCent: Number(snapshot.extraPayCent || 0),
+      settlementAmountCent
+    }),
+    hasShortageExtraPay,
+    shortageExplanation,
     extraPaymentText: fmt.formatPayment(snapshot.extraPaymentMethod),
     hasRemark: !!snapshot.remark,
     remark: snapshot.remark
@@ -155,6 +275,7 @@ guardedPage({
     servicePeopleLoadError: "",
     servicePersonPickerVisible: false,
     paymentMethods,
+    continueExtraCheckout: false,
     configError: "",
     saving: false,
     form: {
@@ -371,17 +492,25 @@ guardedPage({
     const member = this.data.selectedMember || {};
     const originalCent = this.getOriginalCent();
     const calc = calculateCheckout(member, originalCent);
+    const continueExtraCheckout = calc.hasShortageExtraPay ? this.data.continueExtraCheckout : false;
 
     this.setData({
+      continueExtraCheckout,
       calc: {
         balanceYuan: fmt.centToYuan(calc.balanceCent),
         discountText: fmt.formatDiscount(calc.discount),
         originalYuan: fmt.centToYuan(originalCent),
         payableYuan: fmt.centToYuan(calc.payableCent),
         balancePayYuan: fmt.centToYuan(calc.balancePayCent),
+        balanceCoveredOriginalYuan: fmt.centToYuan(calc.balanceCoveredOriginalCent),
+        remainingOriginalYuan: fmt.centToYuan(calc.remainingOriginalCent),
         extraPayYuan: fmt.centToYuan(calc.extraPayCent),
+        settlementAmountYuan: fmt.centToYuan(calc.settlementAmountCent),
+        settlementFormulaText: buildSettlementFormula(calc),
         balanceAfterYuan: fmt.centToYuan(calc.balanceAfterCent),
-        extraPayCent: calc.extraPayCent
+        shortageExplanation: buildShortageExplanation(calc),
+        extraPayCent: calc.extraPayCent,
+        hasShortageExtraPay: calc.hasShortageExtraPay
       }
     });
     this.refreshSignatureValidity();
@@ -411,7 +540,7 @@ guardedPage({
       };
     });
     const snapshot = {
-      version: 1,
+      version: 2,
       member: {
         memberId: member._id || "",
         memberName: member.name || "",
@@ -427,7 +556,10 @@ guardedPage({
       originalAmountCent,
       consumptionAmountCent: calc.payableCent,
       balancePayCent: calc.balancePayCent,
+      balanceCoveredOriginalCent: calc.balanceCoveredOriginalCent,
       extraPayCent: calc.extraPayCent,
+      settlementAmountCent: calc.settlementAmountCent,
+      shortageExtraPayRule: calc.shortageExtraPayRule,
       extraPaymentMethod,
       paymentMethod: buildCheckoutPaymentMethod(
         originalAmountCent,
@@ -482,10 +614,23 @@ guardedPage({
     if (!this.data.selectedMember._id) return api.showError(new Error("请选择会员"));
     if (!this.validateServicePerson()) return;
     if (!this.validateCheckout()) return;
+    if (this.data.calc.hasShortageExtraPay && !this.data.continueExtraCheckout) {
+      return api.showError(new Error("请选择去充值或继续补差结账"));
+    }
     if (this.data.calc.extraPayCent > 0 && !this.data.selectedPayment.value) {
       return api.showError(new Error("请选择补差价支付方式"));
     }
     return true;
+  },
+
+  goMemberRecharge() {
+    wx.redirectTo({
+      url: `/pages/member-recharge/index?memberId=${this.data.memberId}`
+    });
+  },
+
+  continueShortageCheckout() {
+    this.setData({ continueExtraCheckout: true }, () => this.refreshSignatureValidity());
   },
 
   showCheckoutConfirm(snapshotInfo) {

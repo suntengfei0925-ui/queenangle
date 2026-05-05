@@ -108,8 +108,13 @@
         <view>{{calc.discountText}}</view>
       </view>
       <view class="row">
-        <view class="muted">本次消费金额</view>
+        <view class="muted">整单会员价</view>
         <view class="money">¥{{calc.payableYuan}}</view>
+      </view>
+      <view wx:if="{{calc.hasShortageExtraPay}}" class="shortage-note">{{calc.shortageExplanation}}</view>
+      <view wx:if="{{calc.hasShortageExtraPay}}" class="row">
+        <view class="muted">余额可抵扣原价</view>
+        <view class="money">¥{{calc.balanceCoveredOriginalYuan}}</view>
       </view>
       <view class="row">
         <view class="muted">余额支付</view>
@@ -119,8 +124,23 @@
         <view class="muted">补差价</view>
         <view class="money">¥{{calc.extraPayYuan}}</view>
       </view>
+      <view class="row">
+        <view class="muted">本单结算金额</view>
+        <view class="money-block">
+          <view class="money">¥{{calc.settlementAmountYuan}}</view>
+          <view wx:if="{{calc.settlementFormulaText}}" class="muted tiny">{{calc.settlementFormulaText}}</view>
+        </view>
+      </view>
+      <view class="row">
+        <view class="muted">消费后余额</view>
+        <view class="money">¥{{calc.balanceAfterYuan}}</view>
+      </view>
     </view>
-    <view wx:if="{{calc.extraPayCent > 0}}" class="field">
+    <view wx:if="{{calc.hasShortageExtraPay && !continueExtraCheckout}}" class="shortage-actions">
+      <button class="secondary shortage-btn" bindtap="goMemberRecharge">去充值</button>
+      <button class="primary shortage-btn" bindtap="continueShortageCheckout">继续补差结账</button>
+    </view>
+    <view wx:if="{{calc.extraPayCent > 0 && (!calc.hasShortageExtraPay || continueExtraCheckout)}}" class="field">
       <view class="label">补差价支付方式</view>
       <view class="select-list">
         <view
@@ -216,12 +236,24 @@
             <view>{{checkoutConfirm.view.discountText}}</view>
           </view>
           <view class="confirm-row highlight-row">
-            <view>折后金额</view>
+            <view>整单会员价</view>
             <view class="money">¥{{checkoutConfirm.view.payableYuan}}</view>
+          </view>
+          <view wx:if="{{checkoutConfirm.view.hasShortageExtraPay}}" class="shortage-note confirm-note">{{checkoutConfirm.view.shortageExplanation}}</view>
+          <view wx:if="{{checkoutConfirm.view.hasShortageExtraPay}}" class="confirm-row">
+            <view class="muted">余额可抵扣原价</view>
+            <view class="money">¥{{checkoutConfirm.view.balanceCoveredOriginalYuan}}</view>
           </view>
           <view class="confirm-row">
             <view class="muted">补差价</view>
             <view class="money">¥{{checkoutConfirm.view.extraPayYuan}}</view>
+          </view>
+          <view class="confirm-row highlight-row">
+            <view>本单结算金额</view>
+            <view>
+              <view class="money">¥{{checkoutConfirm.view.settlementAmountYuan}}</view>
+              <view wx:if="{{checkoutConfirm.view.settlementFormulaText}}" class="muted tiny">{{checkoutConfirm.view.settlementFormulaText}}</view>
+            </view>
           </view>
           <view wx:if="{{checkoutConfirm.view.extraPaymentText !== '-'}}" class="confirm-row">
             <view class="muted">补差价支付方式</view>

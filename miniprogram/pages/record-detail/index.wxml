@@ -11,7 +11,7 @@
   <view class="section panel stack">
     <view wx:for="{{rows}}" wx:key="label" class="row">
       <view class="muted">{{item.label}}</view>
-      <view>{{item.value}}</view>
+      <view class="record-value">{{item.value}}</view>
     </view>
   </view>
 

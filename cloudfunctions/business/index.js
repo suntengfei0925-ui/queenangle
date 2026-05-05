@@ -21,6 +21,7 @@ const C = {
 
 const PAYMENT_METHODS = ["wechat", "alipay", "cash"];
 const OFFLINE_BOOKS = ["本子1", "本子2", "本子3", "本子4"];
+const SHORTAGE_EXTRA_PAY_RULE = "balance_discount_cover_original_v1";
 
 function error(code, message) {
   const err = new Error(message);
@@ -166,6 +167,91 @@ function normalizeDiscount(value) {
 function discountLabel(value) {
   if (!value) return "无折扣";
   return `${value}折`;
+}
+
+function normalizeDiscountForAmount(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num) || num <= 0 || num >= 10) return null;
+  return Math.round(num * 100) / 100;
+}
+
+function roundCentToJiao(value) {
+  const num = Number(value || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round(num / 10) * 10;
+}
+
+function baseMemberCheckoutAmount(balanceCent, discount, originalAmountCent, memberPriceCent) {
+  return {
+    balanceCent,
+    discount,
+    originalAmountCent,
+    payableCent: memberPriceCent,
+    balancePayCent: 0,
+    extraPayCent: 0,
+    balanceCoveredOriginalCent: 0,
+    remainingOriginalCent: originalAmountCent,
+    settlementAmountCent: 0,
+    balanceAfterCent: balanceCent,
+    shortageExtraPayRule: "",
+    hasShortageExtraPay: false
+  };
+}
+
+function calculateMemberCheckoutAmount(memberState, originalAmountCent) {
+  const balanceCent = Math.max(0, toCent(memberState && memberState.balanceCent));
+  const amountCent = Math.max(0, toCent(originalAmountCent));
+  const discount = amountCent > 0 && balanceCent > 0
+    ? normalizeDiscountForAmount(memberState && memberState.currentDiscount)
+    : null;
+  const discountRate = discount ? discount / 10 : 1;
+  const memberPriceCent = discount ? Math.round(amountCent * discountRate) : amountCent;
+
+  if (amountCent <= 0) {
+    return baseMemberCheckoutAmount(balanceCent, discount, 0, 0);
+  }
+
+  if (balanceCent <= 0) {
+    return {
+      ...baseMemberCheckoutAmount(0, null, amountCent, amountCent),
+      extraPayCent: amountCent,
+      settlementAmountCent: amountCent,
+      balanceAfterCent: 0
+    };
+  }
+
+  if (balanceCent >= memberPriceCent) {
+    return {
+      ...baseMemberCheckoutAmount(balanceCent, discount, amountCent, memberPriceCent),
+      balancePayCent: memberPriceCent,
+      balanceCoveredOriginalCent: amountCent,
+      remainingOriginalCent: 0,
+      settlementAmountCent: memberPriceCent,
+      balanceAfterCent: balanceCent - memberPriceCent
+    };
+  }
+
+  const balancePayCent = balanceCent;
+  const balanceCoveredOriginalCent = Math.min(amountCent, roundCentToJiao(balanceCent / discountRate));
+  const rawRemainingOriginalCent = Math.max(0, amountCent - balanceCoveredOriginalCent);
+  const extraPayCent = Math.max(0, roundCentToJiao(rawRemainingOriginalCent));
+  const remainingOriginalCent = extraPayCent;
+  const hasShortageExtraPay = extraPayCent > 0;
+
+  return {
+    balanceCent,
+    discount,
+    originalAmountCent: amountCent,
+    payableCent: memberPriceCent,
+    balancePayCent,
+    extraPayCent,
+    balanceCoveredOriginalCent,
+    remainingOriginalCent,
+    settlementAmountCent: balancePayCent + extraPayCent,
+    balanceAfterCent: balanceCent - balancePayCent,
+    shortageExtraPayRule: hasShortageExtraPay ? SHORTAGE_EXTRA_PAY_RULE : "",
+    hasShortageExtraPay
+  };
 }
 
 function daysInMonth(month) {
@@ -1492,7 +1578,7 @@ function buildCheckoutPaymentMethod(originalAmountCent, balancePayCent, extraPay
 
 function buildCheckoutSignatureSnapshot(input) {
   return {
-    version: 1,
+    version: 2,
     member: {
       memberId: input.memberId || "",
       memberName: input.member.name || "",
@@ -1508,7 +1594,10 @@ function buildCheckoutSignatureSnapshot(input) {
     originalAmountCent: input.originalAmountCent,
     consumptionAmountCent: input.payableCent,
     balancePayCent: input.balancePayCent,
+    balanceCoveredOriginalCent: input.balanceCoveredOriginalCent,
     extraPayCent: input.extraPayCent,
+    settlementAmountCent: input.settlementAmountCent,
+    shortageExtraPayRule: input.shortageExtraPayRule,
     extraPaymentMethod: input.extraPaymentMethod,
     paymentMethod: input.paymentMethod,
     balanceAfterCent: input.after.balanceCent,
@@ -1564,26 +1653,21 @@ async function createMemberCheckout(event) {
     const serviceName = summarizeServiceItems(serviceItems);
     const before = pickMemberState(member);
     const cardResult = applyCheckoutCardUses(before.cardBalances, cardInputs);
-
-    let payableCent = originalAmountCent;
-    const hasBalance = before.balanceCent > 0;
-    const discount = originalAmountCent > 0 && hasBalance
-      ? Number(before.currentDiscount || 0) || null
-      : null;
-
-    if (hasBalance && discount) {
-      payableCent = Math.round(originalAmountCent * discount / 10);
-    }
-
-    const balancePayCent = Math.min(before.balanceCent, payableCent);
-    const extraPayCent = payableCent - balancePayCent;
+    const amountCalc = calculateMemberCheckoutAmount(before, originalAmountCent);
+    const payableCent = amountCalc.payableCent;
+    const balancePayCent = amountCalc.balancePayCent;
+    const extraPayCent = amountCalc.extraPayCent;
+    const balanceCoveredOriginalCent = amountCalc.balanceCoveredOriginalCent;
+    const settlementAmountCent = amountCalc.settlementAmountCent;
+    const shortageExtraPayRule = amountCalc.shortageExtraPayRule;
+    const discount = amountCalc.discount;
     const extraPaymentMethod = extraPayCent > 0 ? (event.extraPaymentMethod || event.paymentMethod) : "";
 
     if (extraPayCent > 0) {
       assertPayment(extraPaymentMethod, "补差价支付方式");
     }
 
-    const balanceAfterCent = before.balanceCent - balancePayCent;
+    const balanceAfterCent = amountCalc.balanceAfterCent;
     const shouldClearDiscount = originalAmountCent > 0 && balanceAfterCent <= 0;
     const after = {
       ...before,
@@ -1610,7 +1694,10 @@ async function createMemberCheckout(event) {
       originalAmountCent,
       payableCent,
       balancePayCent,
+      balanceCoveredOriginalCent,
       extraPayCent,
+      settlementAmountCent,
+      shortageExtraPayRule,
       extraPaymentMethod,
       paymentMethod,
       discount,
@@ -1631,7 +1718,10 @@ async function createMemberCheckout(event) {
         consumptionAmountCent: payableCent,
         actualReceivedCent: extraPayCent,
         balancePayCent,
+        balanceCoveredOriginalCent,
         extraPayCent,
+        settlementAmountCent,
+        shortageExtraPayRule,
         paymentMethod,
         extraPaymentMethod,
         servicePersonOpenid: servicePerson.servicePersonOpenid,

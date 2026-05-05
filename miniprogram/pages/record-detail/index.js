@@ -6,6 +6,29 @@ function row(label, value) {
   return { label, value: value || "-" };
 }
 
+function getSettlementAmountCent(record) {
+  if (record.settlementAmountCent !== undefined) return Number(record.settlementAmountCent || 0);
+  return Number(record.balancePayCent || 0) + Number(record.extraPayCent || 0);
+}
+
+function hasShortageExtraPay(record) {
+  return !!record.shortageExtraPayRule && Number(record.extraPayCent || 0) > 0;
+}
+
+function buildShortageExplanation(record) {
+  if (!hasShortageExtraPay(record)) return "";
+  const balancePayCent = Number(record.balancePayCent || 0);
+  const coveredCent = Number(record.balanceCoveredOriginalCent || 0);
+  const remainingCent = Number(record.extraPayCent || 0);
+  const discountText = record.discountApplied
+    ? (record.discountLabelApplied || fmt.formatDiscount(record.discountApplied))
+    : "";
+  if (discountText) {
+    return `余额 ¥${fmt.centToYuan(balancePayCent)} 按 ${discountText} 抵扣原价 ¥${fmt.centToYuan(coveredCent)}，剩余原价 ¥${fmt.centToYuan(remainingCent)} 已补差。`;
+  }
+  return `余额 ¥${fmt.centToYuan(balancePayCent)} 抵扣原价 ¥${fmt.centToYuan(coveredCent)}，剩余原价 ¥${fmt.centToYuan(remainingCent)} 已补差。`;
+}
+
 function formatOfflineTrace(record) {
   if (!record.offlineBook || !record.offlinePage) return "";
   return `${record.offlineBook} 第${record.offlinePage}页`;
@@ -42,19 +65,29 @@ function buildRows(record) {
   if (record.type === "member_consumption") {
     rows.push(row("整单原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
     rows.push(row("折扣", record.discountLabelApplied));
-    rows.push(row("消费金额", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
+    rows.push(row("整单会员价", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
     rows.push(row("余额支付", `¥${fmt.centToYuan(record.balancePayCent)}`));
+    if (hasShortageExtraPay(record)) {
+      rows.push(row("余额可抵扣原价", `¥${fmt.centToYuan(record.balanceCoveredOriginalCent)}`));
+    }
     rows.push(row("补差价", `¥${fmt.centToYuan(record.extraPayCent)}`));
+    rows.push(row("本单结算金额", `¥${fmt.centToYuan(getSettlementAmountCent(record))}`));
     rows.push(row("补差价支付方式", fmt.formatPayment(record.extraPaymentMethod)));
+    rows.push(row("补差说明", buildShortageExplanation(record)));
   }
 
   if (record.type === "member_checkout" && hasServiceItems) {
     rows.push(row("整单原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
     rows.push(row("折扣", record.discountLabelApplied));
-    rows.push(row("消费金额", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
+    rows.push(row("整单会员价", `¥${fmt.centToYuan(record.consumptionAmountCent)}`));
     rows.push(row("余额支付", `¥${fmt.centToYuan(record.balancePayCent)}`));
+    if (hasShortageExtraPay(record)) {
+      rows.push(row("余额可抵扣原价", `¥${fmt.centToYuan(record.balanceCoveredOriginalCent)}`));
+    }
     rows.push(row("补差价", `¥${fmt.centToYuan(record.extraPayCent)}`));
+    rows.push(row("本单结算金额", `¥${fmt.centToYuan(getSettlementAmountCent(record))}`));
     rows.push(row("补差价支付方式", fmt.formatPayment(record.extraPaymentMethod)));
+    rows.push(row("补差说明", buildShortageExplanation(record)));
   }
 
   if (record.type === "card_purchase") {

@@ -147,6 +147,36 @@
   background: #f9fafb;
 }
 
+.money-block {
+  text-align: right;
+}
+
+.tiny {
+  font-size: 24rpx;
+}
+
+.shortage-note {
+  border-radius: 8rpx;
+  background: #fff7ed;
+  color: #9a3412;
+  line-height: 1.5;
+  padding: 16rpx;
+}
+
+.shortage-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+}
+
+.shortage-btn {
+  margin: 0;
+}
+
+.confirm-note {
+  margin: 8rpx 0;
+}
+
 .signature-preview {
   display: flex;
   flex-direction: column;
