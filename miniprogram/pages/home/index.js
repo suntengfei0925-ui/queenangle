@@ -22,6 +22,7 @@ guardedPage({
       consumptionYuan: "0.00",
       balancePayYuan: "0.00",
       rechargeYuan: "0.00",
+      cardPurchaseYuan: "0.00",
       activeCount: 0
     },
     records: []
@@ -51,6 +52,7 @@ guardedPage({
             consumptionYuan: fmt.centToYuan(s.consumptionAmountCent),
             balancePayYuan: fmt.centToYuan(s.balancePayCent),
             rechargeYuan: fmt.centToYuan(s.rechargeCent),
+            cardPurchaseYuan: fmt.centToYuan(s.cardPurchaseCent),
             activeCount: s.activeCount || 0
           },
           records: (data.records || []).map(normalizeRecord)

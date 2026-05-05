@@ -8,7 +8,6 @@
     "pages/guest-consumption/index",
     "pages/member-consumption/index",
     "pages/member-recharge/index",
-    "pages/card-purchase/index",
     "pages/member-detail/index",
     "pages/member-edit/index",
     "pages/settings/services/index",

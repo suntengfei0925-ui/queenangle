@@ -15,7 +15,6 @@ function buildRows(record) {
   const hasServiceItems = Array.isArray(record.serviceItems) && record.serviceItems.length > 0;
   const rows = [
     row("会员", record.memberName),
-    row("次卡", record.cardName),
     row("支付方式", fmt.formatPayment(record.paymentMethod))
   ];
 
@@ -56,7 +55,7 @@ function buildRows(record) {
   }
 
   if (record.type === "card_purchase") {
-    rows.push(row("购买次数", `${record.purchaseTimes || 0} 次`));
+    rows.push(row("合计次数", `${record.cardPurchaseTotalTimes || 0} 次`));
     rows.push(row("实收金额", `¥${fmt.centToYuan(record.actualReceivedCent)}`));
   }
 
@@ -84,6 +83,15 @@ function normalizeServiceItems(record) {
 
 function normalizeCardItems(record) {
   const items = Array.isArray(record.cardItems) ? record.cardItems : [];
+  if (record.type === "card_purchase") {
+    return items.map((item, index) => ({
+      ...item,
+      key: `${item.cardTypeId || "card"}-${index}`,
+      purchaseTimes: Number(item.purchaseTimes || 0),
+      priceYuan: fmt.centToYuan(item.priceCent)
+    }));
+  }
+
   return items.map((item, index) => ({
     ...item,
     key: `${item.cardTypeId || "card"}-${index}`,
@@ -112,13 +120,17 @@ guardedPage({
     if (!this.data.recordId) return;
     api.callBusiness("getRecord", { recordId: this.data.recordId })
       .then((record) => {
+        const cardItems = normalizeCardItems(record);
         const normalized = {
           ...record,
           typeText: fmt.formatRecordType(record.type),
           statusText: record.status === "void" ? "已作废" : "有效",
           timeText: fmt.formatDateTime(record.occurredAt || record.createdAt),
           serviceItems: normalizeServiceItems(record),
-          cardItems: normalizeCardItems(record)
+          cardItems,
+          cardPurchaseTotalTimes: record.type === "card_purchase"
+            ? cardItems.reduce((sum, item) => sum + Number(item.purchaseTimes || 0), 0)
+            : 0
         };
         this.setData({
           record: normalized,

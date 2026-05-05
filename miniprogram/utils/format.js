@@ -78,7 +78,16 @@ function formatCheckoutSummary(record) {
   return "";
 }
 
+function formatCardPurchaseSummary(record) {
+  const items = record && Array.isArray(record.cardItems) ? record.cardItems : [];
+  const names = items.map((item) => item.cardName).filter(Boolean);
+  if (names.length > 0) return `购卡：${names.join("、")}`;
+  return "";
+}
+
 function formatRecordSummary(record) {
+  if (record && record.type === "member_recharge") return `充值后折扣：${record.discountLabel || formatDiscount(record.discount)}`;
+  if (record && record.type === "card_purchase") return formatCardPurchaseSummary(record);
   if (record && record.type === "member_checkout") return formatCheckoutSummary(record);
   return formatServiceSummary(record);
 }
@@ -101,6 +110,7 @@ module.exports = {
   formatServiceItemName,
   formatServiceSummary,
   formatCheckoutSummary,
+  formatCardPurchaseSummary,
   formatRecordSummary,
   formatDateTime
 };

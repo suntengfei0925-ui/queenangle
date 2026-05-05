@@ -38,6 +38,23 @@
       </view>
     </view>
     <view class="field">
+      <view class="label">次卡充值</view>
+      <view wx:if="{{cardTypes.length === 0}}" class="empty compact-empty">暂无可购买次卡</view>
+      <view class="select-list" wx:else>
+        <view
+          wx:for="{{cardTypes}}"
+          wx:key="_id"
+          class="select-option {{item.selected ? 'active' : ''}}"
+          bindtap="onCardTypeToggle"
+          data-index="{{index}}"
+        >
+          <view class="select-option-title">{{item.name}}</view>
+          <view class="select-option-meta">{{item.totalTimes}} 次 / ¥{{item.priceYuan}}</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="field">
       <view class="label">支付方式</view>
       <view class="select-list">
         <view
@@ -52,7 +69,9 @@
       </view>
       <image wx:if="{{selectedPayment.qrCodeSrc}}" class="payment-qr-code" src="{{selectedPayment.qrCodeSrc}}" mode="aspectFit" />
     </view>
+
     <view wx:if="{{selectedTier._id}}" class="tier-summary">
+      <view class="sub-title">本次汇总</view>
       <view class="row">
         <view class="muted">余额增加</view>
         <view class="money">¥{{selectedTier.amountYuan}}</view>
@@ -61,12 +80,32 @@
         <view class="muted">充值后折扣</view>
         <view>{{selectedTier.discountLabel}}</view>
       </view>
+      <view class="row">
+        <view class="muted">实收金额</view>
+        <view class="money">¥{{selectedTier.amountYuan}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{selectedCards.length > 0}}" class="tier-summary">
+      <view class="sub-title">本次汇总</view>
+      <view wx:for="{{selectedCards}}" wx:key="_id" class="row card-summary-row">
+        <view>{{item.name}}</view>
+        <view class="money">+{{item.totalTimes}} 次 / ¥{{item.priceYuan}}</view>
+      </view>
+      <view class="row">
+        <view class="muted">合计次数</view>
+        <view>{{cardSummary.totalTimes}} 次</view>
+      </view>
+      <view class="row">
+        <view class="muted">实收金额</view>
+        <view class="money">¥{{cardSummary.totalYuan}}</view>
+      </view>
     </view>
     <view class="field">
       <view class="label">备注</view>
       <input class="input" value="{{form.remark}}" bindinput="onRemarkInput" placeholder="可选" />
     </view>
-    <button class="primary" bindtap="submit">保存记录</button>
+    <button class="primary" bindtap="submit" disabled="{{submitting}}">完成充值</button>
   </view>
 </view>
 

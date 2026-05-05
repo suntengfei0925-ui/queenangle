@@ -48,8 +48,8 @@
     </view>
     <view class="action-card" bindtap="goMemberRecharge">
       <view>
-        <view class="action-title">充值</view>
-        <view class="action-desc">为当前会员增加余额并更新折扣</view>
+        <view class="action-title">购卡/充值</view>
+        <view class="action-desc">为当前会员购买次卡或充值余额</view>
       </view>
       <view class="action-enter">进入</view>
     </view>

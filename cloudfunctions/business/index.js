@@ -1150,6 +1150,80 @@ function updateCardBalances(cardBalances, cardType, deltaTimes) {
   return list;
 }
 
+function normalizeCardPurchaseIds(event) {
+  const rawItems = Array.isArray(event.cardItems) ? event.cardItems : [];
+  const rawIds = rawItems.length > 0
+    ? rawItems.map((item) => item && item.cardTypeId)
+    : Array.isArray(event.cardTypeIds) ? event.cardTypeIds : [];
+  const ids = rawIds.map(normalizeText).filter(Boolean);
+
+  if (ids.length === 0) {
+    throw error("VALIDATION_ERROR", "请选择充值档位或次卡");
+  }
+
+  const seen = new Set();
+  ids.forEach((id) => {
+    if (seen.has(id)) {
+      throw error("VALIDATION_ERROR", "同一种次卡本次只能购买一次");
+    }
+    seen.add(id);
+  });
+
+  return ids;
+}
+
+async function buildCardPurchaseItems(event, transaction) {
+  const cardTypeIds = normalizeCardPurchaseIds(event);
+  const items = [];
+
+  for (const cardTypeId of cardTypeIds) {
+    const cardType = await getById(transaction.collection(C.CARD_TYPES), cardTypeId, "次卡类型不可用");
+    if (!cardType || cardType.enabled === false) {
+      throw error("VALIDATION_ERROR", "次卡类型不可用");
+    }
+
+    const purchaseTimes = Number(cardType.totalTimes || 0);
+    const priceCent = toCent(cardType.priceCent);
+    if (!Number.isInteger(purchaseTimes) || purchaseTimes <= 0) {
+      throw error("VALIDATION_ERROR", "次卡类型不可用");
+    }
+    if (priceCent < 0) {
+      throw error("VALIDATION_ERROR", "次卡类型不可用");
+    }
+
+    items.push({
+      cardTypeId: cardType._id,
+      cardName: cardType.name,
+      purchaseTimes,
+      priceCent
+    });
+  }
+
+  return items;
+}
+
+function applyCardPurchaseItems(cardBalances, cardItems) {
+  let nextBalances = Array.isArray(cardBalances) ? [...cardBalances] : [];
+  const flowItems = [];
+
+  cardItems.forEach((item) => {
+    nextBalances = updateCardBalances(nextBalances, {
+      _id: item.cardTypeId,
+      name: item.cardName
+    }, item.purchaseTimes);
+    const balance = nextBalances.find((card) => card.cardTypeId === item.cardTypeId);
+    flowItems.push({
+      ...item,
+      remainingTimesAfter: balance ? Number(balance.remainingTimes || 0) : 0
+    });
+  });
+
+  return {
+    cardBalances: nextBalances,
+    flowItems
+  };
+}
+
 function getTimeValue(value) {
   const date = new Date(value || 0);
   const time = date.getTime();
@@ -1159,20 +1233,29 @@ function getTimeValue(value) {
 function applyCardDelta(state, cardTypeId, cardName, deltaTimes) {
   const list = Array.isArray(state.cardBalances) ? [...state.cardBalances] : [];
   const index = list.findIndex((item) => item.cardTypeId === cardTypeId);
+  const delta = Number(deltaTimes || 0);
+
+  if (!cardTypeId || !Number.isFinite(delta) || delta === 0) {
+    state.cardBalances = list;
+    return;
+  }
 
   if (index >= 0) {
-    const nextTimes = Math.max(0, Number(list[index].remainingTimes || 0) + deltaTimes);
+    const nextTimes = Number(list[index].remainingTimes || 0) + delta;
+    if (nextTimes < 0) throw error("CARD_NOT_ENOUGH", "次卡剩余次数不足，不能作废");
     list[index] = {
       ...list[index],
       cardName,
       remainingTimes: nextTimes
     };
-  } else if (deltaTimes > 0) {
+  } else if (delta > 0) {
     list.push({
       cardTypeId,
       cardName,
-      remainingTimes: deltaTimes
+      remainingTimes: delta
     });
+  } else {
+    throw error("CARD_NOT_ENOUGH", "次卡剩余次数不足，不能作废");
   }
 
   state.cardBalances = list;
@@ -1228,7 +1311,9 @@ function replayMemberState(records, ignoredRecordId) {
     }
 
     if (record.type === "card_purchase") {
-      applyCardDelta(state, record.cardTypeId, record.cardName, Number(record.purchaseTimes || 0));
+      (record.cardItems || []).forEach((item) => {
+        applyCardDelta(state, item.cardTypeId, item.cardName, Number(item.purchaseTimes || 0));
+      });
     }
 
   });
@@ -1243,17 +1328,14 @@ async function createCardPurchase(event) {
 
   return db.runTransaction(async (transaction) => {
     const member = await getById(transaction.collection(C.MEMBERS), event.memberId, "会员不存在");
-    const cardType = await getById(transaction.collection(C.CARD_TYPES), event.cardTypeId, "次卡类型不存在");
+    const cardItems = await buildCardPurchaseItems(event, transaction);
     const before = pickMemberState(member);
-    const purchaseTimes = Number(event.purchaseTimes || cardType.totalTimes || 0);
-    const actualReceivedCent = event.actualReceivedCent !== undefined ? toCent(event.actualReceivedCent) : yuanToCent(event.actualReceivedYuan);
-
-    if (!Number.isInteger(purchaseTimes) || purchaseTimes <= 0) throw error("VALIDATION_ERROR", "购买次数必须大于 0");
-    if (actualReceivedCent < 0) throw error("VALIDATION_ERROR", "实收金额不能小于 0");
+    const actualReceivedCent = cardItems.reduce((sum, item) => sum + toCent(item.priceCent), 0);
+    const cardResult = applyCardPurchaseItems(before.cardBalances, cardItems);
 
     const after = {
       ...before,
-      cardBalances: updateCardBalances(before.cardBalances, cardType, purchaseTimes)
+      cardBalances: cardResult.cardBalances
     };
 
     const recordRes = await transaction.collection(C.RECORDS).add({
@@ -1262,9 +1344,7 @@ async function createCardPurchase(event) {
         status: "active",
         memberId: event.memberId,
         memberName: member.name,
-        cardTypeId: cardType._id,
-        cardName: cardType.name,
-        purchaseTimes,
+        cardItems,
         actualReceivedCent,
         paymentMethod: event.paymentMethod,
         memberBefore: before,
@@ -1285,20 +1365,22 @@ async function createCardPurchase(event) {
       }
     });
 
-    await transaction.collection(C.CARD_FLOWS).add({
-      data: {
-        memberId: event.memberId,
-        memberName: member.name,
-        type: "purchase",
-        sourceRecordId: recordRes._id,
-        cardTypeId: cardType._id,
-        cardName: cardType.name,
-        deltaTimes: purchaseTimes,
-        remainingTimes: after.cardBalances.find((item) => item.cardTypeId === cardType._id).remainingTimes,
-        remark: normalizeText(event.remark),
-        createdAt: db.serverDate()
-      }
-    });
+    for (const item of cardResult.flowItems) {
+      await transaction.collection(C.CARD_FLOWS).add({
+        data: {
+          memberId: event.memberId,
+          memberName: member.name,
+          type: "purchase",
+          sourceRecordId: recordRes._id,
+          cardTypeId: item.cardTypeId,
+          cardName: item.cardName,
+          deltaTimes: item.purchaseTimes,
+          remainingTimes: item.remainingTimesAfter,
+          remark: normalizeText(event.remark),
+          createdAt: db.serverDate()
+        }
+      });
+    }
 
     return { recordId: recordRes._id };
   });

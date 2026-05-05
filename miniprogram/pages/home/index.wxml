@@ -31,6 +31,10 @@
           <view class="muted">充值</view>
           <view class="money">¥{{summary.rechargeYuan}}</view>
         </view>
+        <view>
+          <view class="muted">购卡</view>
+          <view class="money">¥{{summary.cardPurchaseYuan}}</view>
+        </view>
       </view>
     </view>
   </view>

@@ -19,7 +19,8 @@
     <view class="sub-title">次卡明细</view>
     <view wx:for="{{record.cardItems}}" wx:key="key" class="row">
       <view>{{item.cardName}}</view>
-      <view class="money">扣 {{item.useTimes}} 次，剩余 {{item.remainingTimesAfter}} 次</view>
+      <view wx:if="{{record.type === 'card_purchase'}}" class="money">+{{item.purchaseTimes}} 次 / ¥{{item.priceYuan}}</view>
+      <view wx:else class="money">扣 {{item.useTimes}} 次，剩余 {{item.remainingTimesAfter}} 次</view>
     </view>
   </view>
 

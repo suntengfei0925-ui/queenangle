@@ -20,3 +20,18 @@
   padding: 20rpx;
   background: #f9fafb;
 }
+
+.card-summary-row {
+  align-items: flex-start;
+}
+
+.card-summary-row > view:first-child {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+
+.card-summary-row .money {
+  flex-shrink: 0;
+  text-align: right;
+}
