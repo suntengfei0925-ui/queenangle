@@ -1,0 +1,132 @@
+<view class="page whitelist-page">
+  <view wx:if="{{mode === 'add'}}" class="section panel form">
+    <view class="sub-title">新增人员</view>
+    <view class="field">
+      <view class="label">openid</view>
+      <input class="input" value="{{addForm.openid}}" data-scope="addForm" data-field="openid" bindinput="onInput" placeholder="填写对方 openid" />
+    </view>
+    <view class="field">
+      <view class="label">姓名</view>
+      <input class="input" value="{{addForm.name}}" data-scope="addForm" data-field="name" bindinput="onInput" placeholder="系统内展示姓名" />
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <input class="input" value="{{addForm.remark}}" data-scope="addForm" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <view class="button-row">
+      <button class="primary" loading="{{saving}}" disabled="{{saving}}" bindtap="saveAdd">保存</button>
+      <button class="secondary" disabled="{{saving}}" bindtap="backToList">返回</button>
+    </view>
+  </view>
+
+  <view wx:elif="{{mode === 'approve'}}" class="section panel form">
+    <view class="sub-title">通过申请</view>
+    <view class="field">
+      <view class="label">openid</view>
+      <view class="readonly-value openid-text">{{approveForm.openid}}</view>
+    </view>
+    <view class="field">
+      <view class="label">姓名</view>
+      <input class="input" value="{{approveForm.name}}" data-scope="approveForm" data-field="name" bindinput="onInput" placeholder="系统内展示姓名" />
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <input class="input" value="{{approveForm.remark}}" data-scope="approveForm" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <view class="button-row">
+      <button class="primary" loading="{{saving}}" disabled="{{saving}}" bindtap="approveApplication">通过</button>
+      <button class="secondary" disabled="{{saving}}" bindtap="backToList">返回</button>
+    </view>
+  </view>
+
+  <view wx:elif="{{mode === 'edit'}}" class="section panel form">
+    <view class="sub-title">编辑人员</view>
+    <view class="field">
+      <view class="label">openid</view>
+      <view class="readonly-value openid-text">{{editForm.openid}}</view>
+    </view>
+    <view class="field">
+      <view class="label">姓名</view>
+      <input class="input" value="{{editForm.name}}" data-scope="editForm" data-field="name" bindinput="onInput" placeholder="系统内展示姓名" />
+    </view>
+    <view class="field">
+      <view class="label">备注</view>
+      <input class="input" value="{{editForm.remark}}" data-scope="editForm" data-field="remark" bindinput="onInput" placeholder="可选" />
+    </view>
+    <view class="switch-row">
+      <view>
+        <view class="sub-title compact-title">启用</view>
+        <view class="muted">停用后不能登录系统</view>
+      </view>
+      <switch checked="{{editForm.enabled}}" data-scope="editForm" data-field="enabled" bindchange="onSwitch" />
+    </view>
+    <view class="switch-row">
+      <view>
+        <view class="sub-title compact-title">老板权限</view>
+        <view class="muted">可进入并维护白名单</view>
+      </view>
+      <switch checked="{{editForm.isOwner}}" data-scope="editForm" data-field="isOwner" bindchange="onSwitch" />
+    </view>
+    <view class="button-row">
+      <button class="primary" loading="{{saving}}" disabled="{{saving}}" bindtap="saveEdit">保存</button>
+      <button class="secondary" disabled="{{saving}}" bindtap="backToList">返回</button>
+    </view>
+  </view>
+
+  <block wx:else>
+    <view class="section panel row">
+      <view>
+        <view class="title">白名单管理</view>
+        <view class="muted">维护可登录人员和待审核申请</view>
+      </view>
+      <button class="primary add-btn" bindtap="startAdd">新增人员</button>
+    </view>
+
+    <view class="section panel stack">
+      <view class="row">
+        <view class="sub-title">待审核申请</view>
+        <view class="muted">{{applications.length}} 条</view>
+      </view>
+      <view wx:if="{{applications.length === 0}}" class="empty compact-empty">暂无待审核申请</view>
+      <view wx:else class="list compact-list">
+        <view class="list-item whitelist-item" wx:for="{{applications}}" wx:key="_id">
+          <view class="item-main">
+            <view class="openid-text">{{item.openid}}</view>
+            <view class="meta-line">
+              <text class="tag">{{item.statusText}}</text>
+              <text class="muted">{{item.createdAtText}}</text>
+            </view>
+          </view>
+          <view class="inline-actions">
+            <button class="inline-btn green-btn" size="mini" bindtap="startApprove" data-id="{{item._id}}">通过</button>
+            <button class="inline-btn red-btn" size="mini" bindtap="rejectApplication" data-id="{{item._id}}">拒绝</button>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="section panel stack">
+      <view class="row">
+        <view class="sub-title">已开通人员</view>
+        <view class="muted">{{people.length}} 人</view>
+      </view>
+      <view wx:if="{{people.length === 0}}" class="empty compact-empty">暂无人员</view>
+      <view wx:else class="list compact-list">
+        <view class="list-item whitelist-item" wx:for="{{people}}" wx:key="_id">
+          <view class="item-main">
+            <view class="row person-title-row">
+              <view class="sub-title person-name">{{item.name || "-"}}</view>
+              <view class="tag {{item.enabled ? '' : 'red'}}">{{item.statusText}}</view>
+            </view>
+            <view class="openid-text muted">{{item.openid}}</view>
+            <view class="meta-line">
+              <text class="tag {{item.isOwner ? '' : 'gray'}}">{{item.roleText}}</text>
+              <text class="muted">{{item.remark || "无备注"}}</text>
+            </view>
+          </view>
+          <button class="secondary inline-btn" size="mini" bindtap="editPerson" data-id="{{item._id}}">编辑</button>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

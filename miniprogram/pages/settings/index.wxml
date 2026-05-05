@@ -26,6 +26,13 @@
       </view>
       <view>进入</view>
     </view>
+    <view wx:if="{{isOwner}}" class="list-item row" bindtap="goPage" data-url="/pages/settings/whitelist/index">
+      <view>
+        <view class="sub-title">白名单管理</view>
+        <view class="muted">审核申请，维护可登录人员</view>
+      </view>
+      <view>进入</view>
+    </view>
   </view>
 </view>
 

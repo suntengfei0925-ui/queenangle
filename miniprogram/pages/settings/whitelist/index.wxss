@@ -1,0 +1,79 @@
+.whitelist-page {
+  padding-bottom: 140rpx;
+}
+
+.readonly-value {
+  min-height: 84rpx;
+  box-sizing: border-box;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 10rpx;
+  background: #f9fafb;
+  padding: 18rpx 20rpx;
+  color: #374151;
+}
+
+.openid-text {
+  max-width: 100%;
+  word-break: break-all;
+  line-height: 1.45;
+}
+
+.add-btn {
+  width: 180rpx;
+  min-height: 64rpx;
+  line-height: 64rpx;
+  margin: 0;
+  font-size: 26rpx;
+  flex-shrink: 0;
+}
+
+.compact-list {
+  gap: 12rpx;
+}
+
+.whitelist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.meta-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.person-title-row {
+  align-items: center;
+}
+
+.person-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  min-height: 96rpx;
+  border-top: 1rpx solid #e5e7eb;
+  padding-top: 18rpx;
+}
+
+.compact-title {
+  font-size: 28rpx;
+}

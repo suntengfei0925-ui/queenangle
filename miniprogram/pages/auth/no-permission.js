@@ -2,7 +2,9 @@ const api = require("../../utils/api");
 
 Page({
   data: {
-    openid: ""
+    openid: "",
+    submitting: false,
+    applicationMessage: ""
   },
 
   onLoad() {
@@ -47,6 +49,29 @@ Page({
         });
       }
     });
+  },
+
+  submitApplication() {
+    if (this.data.submitting) return;
+
+    this.setData({
+      submitting: true,
+      applicationMessage: ""
+    });
+
+    api.callBusiness("submitWhitelistApplication")
+      .then((result) => {
+        const message = result.message || "申请已提交，请联系老板审核";
+        this.setData({ applicationMessage: message });
+        wx.showToast({
+          title: message,
+          icon: "none"
+        });
+      })
+      .catch(api.showError)
+      .then(() => {
+        this.setData({ submitting: false });
+      });
   }
 });
 

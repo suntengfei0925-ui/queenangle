@@ -24,6 +24,7 @@ docs/                 产品与数据设计文档
 
 ```text
 owner_whitelist
+whitelist_applications
 members
 services
 recharge_tiers

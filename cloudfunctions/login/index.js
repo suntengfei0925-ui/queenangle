@@ -16,15 +16,18 @@ exports.main = async () => {
   const owner = res.data && res.data[0];
   const allowed = !!owner && owner.enabled !== false;
   const name = owner && owner.name ? String(owner.name).trim() : "";
+  const isOwner = allowed && owner.isOwner === true;
 
   return {
     openid: OPENID,
     allowed,
     name,
+    isOwner,
     owner: allowed
       ? {
         openid: OPENID,
-        name
+        name,
+        isOwner
       }
       : null
   };

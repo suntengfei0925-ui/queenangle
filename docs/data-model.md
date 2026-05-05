@@ -6,7 +6,21 @@
 openid
 name
 enabled
+isOwner
+remark
 createdAt
+updatedAt
+```
+
+## whitelist_applications
+
+```text
+openid
+status
+createdAt
+updatedAt
+reviewedAt
+reviewedByOpenid
 ```
 
 ## members

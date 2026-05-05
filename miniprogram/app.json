@@ -12,6 +12,7 @@
     "pages/member-detail/index",
     "pages/member-edit/index",
     "pages/settings/services/index",
+    "pages/settings/whitelist/index",
     "pages/settings/recharge-tiers/index",
     "pages/settings/card-types/index",
     "pages/record-detail/index"

@@ -8,6 +8,7 @@ const db = cloud.database();
 
 const C = {
   WHITELIST: "owner_whitelist",
+  WHITELIST_APPLICATIONS: "whitelist_applications",
   MEMBERS: "members",
   SERVICE_CATEGORIES: "service_categories",
   SERVICES: "services",
@@ -40,7 +41,7 @@ async function assertOwner() {
   const res = await db.collection(C.WHITELIST).where({ openid }).limit(1).get();
   const owner = res.data && res.data[0];
   if (!owner || owner.enabled === false) {
-    throw error("NO_PERMISSION", "当前微信用户不在老板白名单中");
+    throw error("NO_PERMISSION", "当前微信用户未开通权限");
   }
   return openid;
 }
@@ -59,6 +60,25 @@ function yuanToCent(value) {
 
 function normalizeText(value) {
   return String(value === null || value === undefined ? "" : value).trim();
+}
+
+function normalizeBoolean(value, fallback) {
+  if (value === undefined || value === null) return fallback;
+  if (value === false || value === "false" || value === 0 || value === "0") return false;
+  return true;
+}
+
+async function assertWhitelistOwner() {
+  const openid = getOpenid();
+  const res = await db.collection(C.WHITELIST).where({ openid }).limit(1).get();
+  const person = res.data && res.data[0];
+  if (!person || person.enabled === false) {
+    throw error("NO_PERMISSION", "当前微信用户未开通权限");
+  }
+  if (person.isOwner !== true) {
+    throw error("OWNER_PERMISSION_REQUIRED", "只有老板可以管理白名单");
+  }
+  return person;
 }
 
 function normalizeForHash(value) {
@@ -116,6 +136,24 @@ async function ensureCollection(name) {
   } catch (err) {
     if (!isCollectionAlreadyExists(err)) throw err;
   }
+}
+
+async function ensureExistingCollection(name, message) {
+  try {
+    await db.collection(name).limit(1).get();
+  } catch (err) {
+    if (isCollectionNotFound(err)) {
+      throw error("CONFIG_ERROR", message);
+    }
+    throw err;
+  }
+}
+
+async function ensureWhitelistApplicationsCollection() {
+  await ensureExistingCollection(
+    C.WHITELIST_APPLICATIONS,
+    "请先在云数据库创建 whitelist_applications 集合，并设置为仅云函数可读写"
+  );
 }
 
 function normalizeDiscount(value) {
@@ -355,6 +393,268 @@ async function getById(collection, id, message) {
   } catch (e) {
     throw error("NOT_FOUND", message || "数据不存在");
   }
+}
+
+function whitelistPersonOut(person) {
+  return {
+    _id: person._id,
+    openid: normalizeText(person.openid),
+    name: normalizeText(person.name),
+    remark: normalizeText(person.remark),
+    enabled: person.enabled !== false,
+    isOwner: person.isOwner === true,
+    createdAt: person.createdAt || null,
+    updatedAt: person.updatedAt || null
+  };
+}
+
+function whitelistApplicationOut(application) {
+  return {
+    _id: application._id,
+    openid: normalizeText(application.openid),
+    status: normalizeText(application.status) || "pending",
+    createdAt: application.createdAt || null,
+    updatedAt: application.updatedAt || null,
+    reviewedAt: application.reviewedAt || null,
+    reviewedByOpenid: normalizeText(application.reviewedByOpenid)
+  };
+}
+
+async function submitWhitelistApplication() {
+  await ensureWhitelistApplicationsCollection();
+
+  const openid = getOpenid();
+  const whitelistRes = await db.collection(C.WHITELIST).where({ openid }).limit(1).get();
+  const person = whitelistRes.data && whitelistRes.data[0];
+  if (person && person.enabled !== false) {
+    return {
+      status: "opened",
+      message: "当前 openid 已开通权限"
+    };
+  }
+
+  const applications = db.collection(C.WHITELIST_APPLICATIONS);
+  const appRes = await applications.where({ openid }).limit(1).get();
+  const existing = appRes.data && appRes.data[0];
+
+  if (existing) {
+    if (existing.status === "pending") {
+      return {
+        id: existing._id,
+        status: "pending",
+        message: "申请已提交，请等待老板审核"
+      };
+    }
+
+    await applications.doc(existing._id).update({
+      data: {
+        status: "pending",
+        reviewedAt: null,
+        reviewedByOpenid: "",
+        updatedAt: db.serverDate()
+      }
+    });
+
+    return {
+      id: existing._id,
+      status: "pending",
+      message: "申请已提交，请联系老板审核"
+    };
+  }
+
+  const addRes = await applications.add({
+    data: {
+      openid,
+      status: "pending",
+      createdAt: db.serverDate(),
+      updatedAt: db.serverDate()
+    }
+  });
+
+  return {
+    id: addRes._id,
+    status: "pending",
+    message: "申请已提交，请联系老板审核"
+  };
+}
+
+async function listWhitelistManagement() {
+  const current = await assertWhitelistOwner();
+  await ensureWhitelistApplicationsCollection();
+
+  const appRes = await db.collection(C.WHITELIST_APPLICATIONS).where({ status: "pending" }).limit(100).get();
+  const peopleRes = await db.collection(C.WHITELIST).limit(200).get();
+
+  const applications = (appRes.data || [])
+    .map(whitelistApplicationOut)
+    .sort((a, b) => getTimeValue(b.createdAt || b.updatedAt) - getTimeValue(a.createdAt || a.updatedAt));
+
+  const people = (peopleRes.data || [])
+    .map(whitelistPersonOut)
+    .sort((a, b) => {
+      if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+      if (a.isOwner !== b.isOwner) return a.isOwner ? -1 : 1;
+      return a.name.localeCompare(b.name, "zh-Hans");
+    });
+
+  return {
+    currentOpenid: current.openid,
+    applications,
+    people
+  };
+}
+
+async function reviewWhitelistApplication(event) {
+  const reviewer = await assertWhitelistOwner();
+  await ensureWhitelistApplicationsCollection();
+
+  const applicationId = normalizeText(event.applicationId);
+  const decision = normalizeText(event.decision);
+  if (!applicationId) throw error("VALIDATION_ERROR", "缺少申请 ID");
+  if (!["approved", "rejected"].includes(decision)) {
+    throw error("VALIDATION_ERROR", "审核结果不正确");
+  }
+
+  if (decision === "rejected") {
+    const application = await getById(
+      db.collection(C.WHITELIST_APPLICATIONS),
+      applicationId,
+      "申请不存在"
+    );
+    if (application.status !== "pending") {
+      throw error("INVALID_STATUS", "该申请已处理");
+    }
+
+    await db.collection(C.WHITELIST_APPLICATIONS).doc(applicationId).update({
+      data: {
+        status: "rejected",
+        reviewedAt: db.serverDate(),
+        reviewedByOpenid: reviewer.openid,
+        updatedAt: db.serverDate()
+      }
+    });
+    return { id: applicationId, status: "rejected" };
+  }
+
+  const name = normalizeText(event.name);
+  const remark = normalizeText(event.remark);
+  if (!name) throw error("VALIDATION_ERROR", "请填写姓名");
+
+  return db.runTransaction(async (transaction) => {
+    const application = await getById(
+      transaction.collection(C.WHITELIST_APPLICATIONS),
+      applicationId,
+      "申请不存在"
+    );
+    if (application.status !== "pending") {
+      throw error("INVALID_STATUS", "该申请已处理");
+    }
+
+    const openid = normalizeText(application.openid);
+    if (!openid) throw error("VALIDATION_ERROR", "申请 openid 为空");
+
+    const whitelistCollection = transaction.collection(C.WHITELIST);
+    const whitelistRes = await whitelistCollection.where({ openid }).limit(1).get();
+    const existing = whitelistRes.data && whitelistRes.data[0];
+    const personData = {
+      name,
+      remark,
+      enabled: true,
+      isOwner: false,
+      updatedAt: db.serverDate()
+    };
+
+    if (existing) {
+      await whitelistCollection.doc(existing._id).update({ data: personData });
+    } else {
+      await whitelistCollection.add({
+        data: {
+          openid,
+          ...personData,
+          createdAt: db.serverDate()
+        }
+      });
+    }
+
+    await transaction.collection(C.WHITELIST_APPLICATIONS).doc(applicationId).update({
+      data: {
+        status: "approved",
+        reviewedAt: db.serverDate(),
+        reviewedByOpenid: reviewer.openid,
+        updatedAt: db.serverDate()
+      }
+    });
+
+    return { id: applicationId, status: "approved" };
+  });
+}
+
+async function countActiveOwners(collection) {
+  const res = await collection.limit(200).get();
+  return (res.data || []).filter((person) => person.enabled !== false && person.isOwner === true).length;
+}
+
+async function saveWhitelistPerson(event) {
+  await assertWhitelistOwner();
+
+  const id = normalizeText(event.id);
+  const name = normalizeText(event.name);
+  const remark = normalizeText(event.remark);
+  if (!name) throw error("VALIDATION_ERROR", "请填写姓名");
+
+  const collection = db.collection(C.WHITELIST);
+
+  if (!id) {
+    const openid = normalizeText(event.openid);
+    if (!openid) throw error("VALIDATION_ERROR", "请填写 openid");
+
+    const sameRes = await collection.where({ openid }).limit(1).get();
+    if ((sameRes.data || []).length > 0) {
+      throw error("DUPLICATE_OPENID", "该 openid 已存在，请编辑原人员或通过申请恢复启用");
+    }
+
+    const addRes = await collection.add({
+      data: {
+        openid,
+        name,
+        remark,
+        enabled: true,
+        isOwner: false,
+        createdAt: db.serverDate(),
+        updatedAt: db.serverDate()
+      }
+    });
+    return { id: addRes._id };
+  }
+
+  const existing = await getById(collection, id, "人员不存在");
+  const nextEnabled = normalizeBoolean(event.enabled, existing.enabled !== false);
+  const nextIsOwner = normalizeBoolean(event.isOwner, existing.isOwner === true);
+  const sensitive = existing.isOwner !== nextIsOwner
+    || (existing.enabled !== false && existing.isOwner === true && !nextEnabled);
+
+  if (sensitive && event.confirmSensitive !== true) {
+    throw error("SENSITIVE_CONFIRM_REQUIRED", "老板权限变更需要二次确认");
+  }
+
+  if (existing.enabled !== false && existing.isOwner === true && (!nextEnabled || !nextIsOwner)) {
+    const activeOwnerCount = await countActiveOwners(collection);
+    if (activeOwnerCount <= 1) {
+      throw error("LAST_OWNER_REQUIRED", "系统必须至少保留一个启用老板");
+    }
+  }
+
+  await collection.doc(id).update({
+    data: {
+      name,
+      remark,
+      enabled: nextEnabled,
+      isOwner: nextIsOwner,
+      updatedAt: db.serverDate()
+    }
+  });
+
+  return { id };
 }
 
 function servicePersonLoadError() {
@@ -1758,6 +2058,10 @@ async function replaceTodayRecord(event) {
 }
 
 const actions = {
+  submitWhitelistApplication,
+  listWhitelistManagement,
+  reviewWhitelistApplication,
+  saveWhitelistPerson,
   listMembers,
   listServicePeople,
   saveMember,

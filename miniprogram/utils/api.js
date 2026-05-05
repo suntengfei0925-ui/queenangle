@@ -32,15 +32,18 @@ function checkAuth() {
     const owner = data.owner || {};
     const openid = data.openid || owner.openid || "";
     const name = data.name || owner.name || "";
+    const isOwner = data.isOwner === true || owner.isOwner === true;
     app.globalData.auth = {
       checked: true,
       allowed: !!data.allowed,
       openid,
       name,
+      isOwner,
       owner: data.allowed
         ? {
           openid,
-          name
+          name,
+          isOwner
         }
         : null
     };

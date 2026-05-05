@@ -6,6 +6,7 @@ App({
       allowed: false,
       openid: "",
       name: "",
+      isOwner: false,
       owner: null
     },
     servicePeople: [],

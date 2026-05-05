@@ -6,6 +6,7 @@
 
 ```text
 owner_whitelist
+whitelist_applications
 members
 service_categories
 services
@@ -36,7 +37,9 @@ card_flows
 {
   "openid": "这里填写老板 openid",
   "name": "老板",
-  "enabled": true
+  "enabled": true,
+  "isOwner": true,
+  "remark": ""
 }
 ```
 
