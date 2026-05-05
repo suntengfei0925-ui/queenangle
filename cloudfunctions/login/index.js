@@ -14,10 +14,19 @@ exports.main = async () => {
     .get();
 
   const owner = res.data && res.data[0];
+  const allowed = !!owner && owner.enabled !== false;
+  const name = owner && owner.name ? String(owner.name).trim() : "";
 
   return {
     openid: OPENID,
-    allowed: !!owner && owner.enabled !== false
+    allowed,
+    name,
+    owner: allowed
+      ? {
+        openid: OPENID,
+        name
+      }
+      : null
   };
 };
 

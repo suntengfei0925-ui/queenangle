@@ -1,5 +1,13 @@
 <view class="page">
   <view class="panel form">
+    <view class="service-person-row" bindtap="openServicePersonPicker">
+      <view class="label">服务人</view>
+      <view class="service-person-value">
+        <text class="service-person-name">{{selectedServicePerson.name || '加载中'}}</text>
+        <text class="service-person-arrow">></text>
+      </view>
+    </view>
+
     <view class="field">
       <view class="label">消费项目</view>
       <view wx:if="{{configError}}" class="empty compact-empty">{{configError}}</view>
@@ -74,5 +82,24 @@
       <input class="input" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
     </view>
     <button class="primary" bindtap="submit">保存记录</button>
+  </view>
+
+  <view wx:if="{{servicePersonPickerVisible}}" class="service-person-mask" bindtap="closeServicePersonPicker" catchtouchmove="noop">
+    <view class="service-person-sheet" catchtap="noop">
+      <view class="service-person-sheet-title">选择服务人</view>
+      <view class="service-person-list">
+        <view
+          wx:for="{{servicePeople}}"
+          wx:key="openid"
+          class="service-person-option {{item.openid === selectedServicePerson.openid ? 'active' : ''}}"
+          bindtap="selectServicePerson"
+          data-openid="{{item.openid}}"
+        >
+          <view>{{item.name}}</view>
+          <view wx:if="{{item.openid === selectedServicePerson.openid}}" class="service-person-check">已选</view>
+        </view>
+      </view>
+      <button class="secondary service-person-cancel" bindtap="closeServicePersonPicker">取消</button>
+    </view>
   </view>
 </view>

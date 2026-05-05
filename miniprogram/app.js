@@ -4,8 +4,12 @@ App({
     auth: {
       checked: false,
       allowed: false,
-      openid: ""
-    }
+      openid: "",
+      name: "",
+      owner: null
+    },
+    servicePeople: [],
+    servicePeopleOwnerOpenid: ""
   },
 
   onLaunch() {

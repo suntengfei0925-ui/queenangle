@@ -4,6 +4,7 @@ const basicConfig = require("../../utils/basic-config");
 const fmt = require("../../utils/format");
 const signatureUtils = require("../../utils/signature");
 const { paymentMethods } = require("../../utils/payment");
+const servicePerson = require("../../utils/service-person");
 
 function emptyCalc() {
   return {
@@ -111,6 +112,7 @@ function buildConfirmationView(snapshot) {
     balanceBeforeYuan: fmt.centToYuan(snapshot.balanceBeforeCent),
     balancePayYuan: fmt.centToYuan(snapshot.balancePayCent),
     balanceAfterYuan: fmt.centToYuan(snapshot.balanceAfterCent),
+    servicePersonName: snapshot.servicePersonName || "-",
     originalYuan: fmt.centToYuan(snapshot.originalAmountCent),
     discountText: snapshot.discountLabelApplied || "无折扣",
     payableYuan: fmt.centToYuan(snapshot.consumptionAmountCent),
@@ -132,6 +134,10 @@ guardedPage({
     selectedItems: [],
     selectedMember: {},
     selectedPayment: {},
+    selectedServicePerson: {},
+    servicePeople: [],
+    servicePeopleLoadError: "",
+    servicePersonPickerVisible: false,
     paymentMethods,
     configError: "",
     saving: false,
@@ -164,7 +170,34 @@ guardedPage({
       return;
     }
     this.loadCatalog();
+    this.initServicePerson();
     this.loadMemberDetail(memberId);
+  },
+
+  initServicePerson() {
+    const current = servicePerson.getCurrentServicePerson();
+    const cachedPeople = servicePerson.readServicePeopleCache();
+    this.setData({
+      selectedServicePerson: current.openid && current.name ? current : {},
+      servicePeople: cachedPeople,
+      servicePeopleLoadError: ""
+    });
+
+    servicePerson.refreshServicePeople()
+      .then((people) => {
+        const selected = this.data.selectedServicePerson || {};
+        const refreshedSelected = selected.openid
+          ? (people.find((person) => person.openid === selected.openid) || selected)
+          : {};
+        this.setData({
+          selectedServicePerson: refreshedSelected,
+          servicePeople: people,
+          servicePeopleLoadError: ""
+        }, () => this.refreshSignatureValidity());
+      })
+      .catch(() => {
+        this.setData({ servicePeopleLoadError: "服务人名单加载失败" });
+      });
   },
 
   loadMemberDetail(memberId) {
@@ -263,6 +296,37 @@ guardedPage({
     this.refreshSignatureValidity();
   },
 
+  openServicePersonPicker() {
+    const current = this.data.selectedServicePerson || {};
+    if (!current.openid || !current.name) {
+      api.showError(new Error("服务人信息加载失败，请重试"));
+      return;
+    }
+    if (this.data.servicePeopleLoadError && this.data.servicePeople.length <= 1) {
+      api.showError(new Error(this.data.servicePeopleLoadError));
+      return;
+    }
+    if (this.data.servicePeople.length === 0) {
+      api.showError(new Error("服务人名单加载中，请稍后"));
+      return;
+    }
+    this.setData({ servicePersonPickerVisible: true });
+  },
+
+  closeServicePersonPicker() {
+    this.setData({ servicePersonPickerVisible: false });
+  },
+
+  selectServicePerson(e) {
+    const openid = e.currentTarget.dataset.openid;
+    const person = this.data.servicePeople.find((item) => item.openid === openid);
+    if (!person) return;
+    this.setData({
+      selectedServicePerson: person,
+      servicePersonPickerVisible: false
+    }, () => this.refreshSignatureValidity());
+  },
+
   onInput(e) {
     this.setData({
       [`form.${e.currentTarget.dataset.field}`]: e.detail.value
@@ -299,6 +363,7 @@ guardedPage({
 
   buildCheckoutSnapshotInfo() {
     const member = this.data.selectedMember || {};
+    const selectedServicePerson = this.data.selectedServicePerson || {};
     const originalAmountCent = this.getOriginalCent();
     const calc = calculateCheckout(member, originalAmountCent);
     const extraPaymentMethod = calc.extraPayCent > 0 ? (this.data.selectedPayment.value || "") : "";
@@ -326,6 +391,8 @@ guardedPage({
         memberName: member.name || "",
         phone: member.phone || ""
       },
+      servicePersonOpenid: selectedServicePerson.openid || "",
+      servicePersonName: selectedServicePerson.name || "",
       serviceItems,
       cardItems,
       balanceBeforeCent: calc.balanceCent,
@@ -375,9 +442,19 @@ guardedPage({
     return true;
   },
 
+  validateServicePerson() {
+    const person = this.data.selectedServicePerson || {};
+    if (!person.openid || !person.name) {
+      api.showError(new Error("服务人信息加载失败，请重试"));
+      return false;
+    }
+    return true;
+  },
+
   validateReadyForSignature() {
     if (this.data.saving) return;
     if (!this.data.selectedMember._id) return api.showError(new Error("请选择会员"));
+    if (!this.validateServicePerson()) return;
     if (!this.validateCheckout()) return;
     if (this.data.calc.extraPayCent > 0 && !this.data.selectedPayment.value) {
       return api.showError(new Error("请选择补差价支付方式"));
@@ -491,6 +568,7 @@ guardedPage({
         })),
         paymentMethod: this.data.selectedPayment.value,
         extraPaymentMethod: this.data.selectedPayment.value,
+        servicePersonOpenid: this.data.selectedServicePerson.openid,
         remark: this.data.form.remark,
         signatureFileId,
         signatureSignedAt: currentSignature.signedAt,

@@ -29,10 +29,20 @@ function checkAuth() {
     data: {}
   }).then((res) => {
     const data = res.result || {};
+    const owner = data.owner || {};
+    const openid = data.openid || owner.openid || "";
+    const name = data.name || owner.name || "";
     app.globalData.auth = {
       checked: true,
       allowed: !!data.allowed,
-      openid: data.openid || ""
+      openid,
+      name,
+      owner: data.allowed
+        ? {
+          openid,
+          name
+        }
+        : null
     };
 
     if (!data.allowed) {

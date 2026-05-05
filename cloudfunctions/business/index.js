@@ -357,6 +357,45 @@ async function getById(collection, id, message) {
   }
 }
 
+function servicePersonLoadError() {
+  return error("SERVICE_PERSON_REQUIRED", "服务人信息加载失败，请重试");
+}
+
+async function getServicePersonSnapshot(event, context) {
+  const servicePersonOpenid = normalizeText(event.servicePersonOpenid);
+  if (!servicePersonOpenid) throw servicePersonLoadError();
+
+  const res = await getCollection(context, C.WHITELIST)
+    .where({ openid: servicePersonOpenid })
+    .limit(1)
+    .get();
+  const person = res.data && res.data[0];
+  if (!person || person.enabled === false) {
+    throw error("SERVICE_PERSON_DISABLED", "服务人已停用，请重新选择服务人");
+  }
+
+  const servicePersonName = normalizeText(person.name);
+  if (!servicePersonName) throw servicePersonLoadError();
+
+  return {
+    servicePersonOpenid: person.openid,
+    servicePersonName
+  };
+}
+
+async function listServicePeople() {
+  await assertOwner();
+  const res = await db.collection(C.WHITELIST).limit(200).get();
+  return (res.data || [])
+    .filter((person) => person.enabled !== false)
+    .map((person) => ({
+      openid: normalizeText(person.openid),
+      name: normalizeText(person.name)
+    }))
+    .filter((person) => person.openid && person.name)
+    .sort((a, b) => a.name.localeCompare(b.name, "zh-Hans"));
+}
+
 async function listMembers(event) {
   await assertOwner();
   const keyword = normalizeText(event.keyword).toLowerCase();
@@ -1032,6 +1071,7 @@ async function createGuestConsumption(event) {
   const serviceName = summarizeServiceItems(serviceItems);
   const actualReceivedCent = event.actualReceivedCent !== undefined ? toCent(event.actualReceivedCent) : yuanToCent(event.actualReceivedYuan);
   if (actualReceivedCent < 0) throw error("VALIDATION_ERROR", "实收金额不能小于 0");
+  const servicePerson = await getServicePersonSnapshot(event);
 
   const record = {
     type: "guest_consumption",
@@ -1044,6 +1084,8 @@ async function createGuestConsumption(event) {
     actualReceivedCent,
     balancePayCent: 0,
     paymentMethod: event.paymentMethod,
+    servicePersonOpenid: servicePerson.servicePersonOpenid,
+    servicePersonName: servicePerson.servicePersonName,
     remark: normalizeText(event.remark),
     occurredAt,
     businessDate: businessDate(occurredAt),
@@ -1143,6 +1185,8 @@ function buildCheckoutSignatureSnapshot(input) {
       memberName: input.member.name || "",
       phone: input.member.phone || ""
     },
+    servicePersonOpenid: input.servicePerson.servicePersonOpenid,
+    servicePersonName: input.servicePerson.servicePersonName,
     serviceItems: input.serviceItems,
     cardItems: input.cardItems,
     balanceBeforeCent: input.before.balanceCent,
@@ -1200,6 +1244,7 @@ async function createMemberCheckout(event) {
     if (serviceItems.length === 0 && cardInputs.length === 0) {
       throw error("VALIDATION_ERROR", "请选择次卡或服务项目");
     }
+    const servicePerson = await getServicePersonSnapshot(event, transaction);
 
     const originalAmountCent = sumServiceItems(serviceItems);
     const firstItem = serviceItems[0] || {};
@@ -1244,6 +1289,7 @@ async function createMemberCheckout(event) {
     const signaturePayload = normalizeCheckoutSignature(event, buildCheckoutSignatureSnapshot({
       memberId,
       member,
+      servicePerson,
       serviceItems,
       cardItems: cardResult.cardItems,
       before,
@@ -1275,6 +1321,8 @@ async function createMemberCheckout(event) {
         extraPayCent,
         paymentMethod,
         extraPaymentMethod,
+        servicePersonOpenid: servicePerson.servicePersonOpenid,
+        servicePersonName: servicePerson.servicePersonName,
         discountApplied: discount,
         discountLabelApplied: originalAmountCent > 0 ? discountLabel(discount) : "",
         memberBefore: before,
@@ -1711,6 +1759,7 @@ async function replaceTodayRecord(event) {
 
 const actions = {
   listMembers,
+  listServicePeople,
   saveMember,
   getMemberDetail,
   listServiceCategories,

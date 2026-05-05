@@ -3,6 +3,7 @@ const api = require("../../utils/api");
 const basicConfig = require("../../utils/basic-config");
 const fmt = require("../../utils/format");
 const { paymentMethods } = require("../../utils/payment");
+const servicePerson = require("../../utils/service-person");
 
 function isAmountFilled(value) {
   return value !== undefined && value !== null && String(value).trim() !== "";
@@ -31,6 +32,10 @@ guardedPage({
     activeServices: [],
     selectedItems: [],
     selectedPayment: {},
+    selectedServicePerson: {},
+    servicePeople: [],
+    servicePeopleLoadError: "",
+    servicePersonPickerVisible: false,
     paymentMethods,
     configError: "",
     totalOriginalYuan: "0.00",
@@ -41,7 +46,34 @@ guardedPage({
   },
 
   onLoad() {
+    this.initServicePerson();
     this.loadCatalog();
+  },
+
+  initServicePerson() {
+    const current = servicePerson.getCurrentServicePerson();
+    const cachedPeople = servicePerson.readServicePeopleCache();
+    this.setData({
+      selectedServicePerson: current.openid && current.name ? current : {},
+      servicePeople: cachedPeople,
+      servicePeopleLoadError: ""
+    });
+
+    servicePerson.refreshServicePeople()
+      .then((people) => {
+        const selected = this.data.selectedServicePerson || {};
+        const refreshedSelected = selected.openid
+          ? (people.find((person) => person.openid === selected.openid) || selected)
+          : {};
+        this.setData({
+          selectedServicePerson: refreshedSelected,
+          servicePeople: people,
+          servicePeopleLoadError: ""
+        });
+      })
+      .catch(() => {
+        this.setData({ servicePeopleLoadError: "服务人名单加载失败" });
+      });
   },
 
   loadCatalog() {
@@ -127,6 +159,48 @@ guardedPage({
     });
   },
 
+  openServicePersonPicker() {
+    const current = this.data.selectedServicePerson || {};
+    if (!current.openid || !current.name) {
+      api.showError(new Error("服务人信息加载失败，请重试"));
+      return;
+    }
+    if (this.data.servicePeopleLoadError && this.data.servicePeople.length <= 1) {
+      api.showError(new Error(this.data.servicePeopleLoadError));
+      return;
+    }
+    if (this.data.servicePeople.length === 0) {
+      api.showError(new Error("服务人名单加载中，请稍后"));
+      return;
+    }
+    this.setData({ servicePersonPickerVisible: true });
+  },
+
+  closeServicePersonPicker() {
+    this.setData({ servicePersonPickerVisible: false });
+  },
+
+  selectServicePerson(e) {
+    const openid = e.currentTarget.dataset.openid;
+    const person = this.data.servicePeople.find((item) => item.openid === openid);
+    if (!person) return;
+    this.setData({
+      selectedServicePerson: person,
+      servicePersonPickerVisible: false
+    });
+  },
+
+  noop() {},
+
+  validateServicePerson() {
+    const person = this.data.selectedServicePerson || {};
+    if (!person.openid || !person.name) {
+      api.showError(new Error("服务人信息加载失败，请重试"));
+      return false;
+    }
+    return true;
+  },
+
   validateItems() {
     if (this.data.selectedItems.length === 0) {
       api.showError(new Error("请选择至少一个服务项目"));
@@ -141,6 +215,7 @@ guardedPage({
   },
 
   submit() {
+    if (!this.validateServicePerson()) return;
     if (!this.validateItems()) return;
     if (!this.data.selectedPayment.value) {
       api.showError(new Error("请选择支付方式"));
@@ -154,6 +229,7 @@ guardedPage({
       })),
       actualReceivedCent: fmt.yuanInputToCent(this.data.form.actualReceivedYuan),
       paymentMethod: this.data.selectedPayment.value,
+      servicePersonOpenid: this.data.selectedServicePerson.openid,
       remark: this.data.form.remark
     })
       .then(() => {

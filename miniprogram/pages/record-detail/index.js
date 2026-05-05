@@ -17,6 +17,9 @@ function buildRows(record) {
     row("会员", record.memberName),
     row("支付方式", fmt.formatPayment(record.paymentMethod))
   ];
+  if (["guest_consumption", "member_consumption", "member_checkout"].includes(record.type)) {
+    rows.push(row("服务人", record.servicePersonName));
+  }
 
   if (record.type === "guest_consumption") {
     rows.push(row("整单原价", `¥${fmt.centToYuan(record.originalAmountCent)}`));
