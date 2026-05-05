@@ -1,5 +1,6 @@
 const { guardedPage } = require("../../utils/page");
 const api = require("../../utils/api");
+const basicConfig = require("../../utils/basic-config");
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
   value: String(index + 1),
@@ -69,6 +70,7 @@ guardedPage({
     redirect: "",
     saving: false,
     loadingCards: false,
+    cardConfigError: "",
     monthOptions: MONTH_OPTIONS,
     dayOptions: [],
     discountOptions: DISCOUNT_OPTIONS,
@@ -90,18 +92,41 @@ guardedPage({
   },
 
   loadInitialCardTypes() {
-    this.setData({ loadingCards: true });
-    api.callBusiness("listCardTypes", { onlyEnabled: true })
-      .then((cardTypes) => {
-        this.setData({
-          loadingCards: false,
-          initialCardTypes: (cardTypes || []).map(normalizeInitialCardType)
-        });
+    const cache = basicConfig.readBasicConfigCache();
+    if (cache) {
+      this.applyInitialCardTypes(cache.cardTypes);
+    } else {
+      this.setData({ loadingCards: true });
+    }
+
+    basicConfig.refreshBasicConfig({ silent: !!cache })
+      .then((config) => {
+        if (config) this.applyInitialCardTypes(config.cardTypes);
+        this.setData({ loadingCards: false });
       })
       .catch((err) => {
-        this.setData({ loadingCards: false });
+        this.setData({
+          loadingCards: false,
+          cardConfigError: "次卡配置加载失败，请重试"
+        });
         api.showError(err);
       });
+  },
+
+  applyInitialCardTypes(cardTypes) {
+    const currentMap = this.data.initialCardTypes.reduce((acc, item) => {
+      acc[item._id] = item;
+      return acc;
+    }, {});
+    this.setData({
+      loadingCards: false,
+      cardConfigError: "",
+      initialCardTypes: (cardTypes || []).map((item) => ({
+        ...normalizeInitialCardType(item),
+        selected: !!(currentMap[item._id] && currentMap[item._id].selected),
+        initialTimes: currentMap[item._id] ? currentMap[item._id].initialTimes : ""
+      }))
+    });
   },
 
   loadMember(id) {

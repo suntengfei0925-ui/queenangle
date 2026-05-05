@@ -22,37 +22,40 @@
   </view>
 
   <view class="panel form">
-    <view class="field">
-      <view class="label">充值档位</view>
-      <view class="select-list">
-        <view
-          wx:for="{{tiers}}"
-          wx:key="_id"
-          class="select-option {{item._id === selectedTier._id ? 'active' : ''}}"
-          bindtap="onTierChange"
-          data-index="{{index}}"
-        >
-          <view class="select-option-title">充 ¥{{item.amountYuan}}</view>
-          <view class="select-option-meta">享 {{item.discountLabel}}</view>
+    <view wx:if="{{configError}}" class="empty compact-empty">{{configError}}</view>
+    <block wx:else>
+      <view class="field">
+        <view class="label">充值档位</view>
+        <view class="select-list">
+          <view
+            wx:for="{{tiers}}"
+            wx:key="_id"
+            class="select-option {{item._id === selectedTier._id ? 'active' : ''}}"
+            bindtap="onTierChange"
+            data-index="{{index}}"
+          >
+            <view class="select-option-title">充 ¥{{item.amountYuan}}</view>
+            <view class="select-option-meta">享 {{item.discountLabel}}</view>
+          </view>
         </view>
       </view>
-    </view>
-    <view class="field">
-      <view class="label">次卡充值</view>
-      <view wx:if="{{cardTypes.length === 0}}" class="empty compact-empty">暂无可购买次卡</view>
-      <view class="select-list" wx:else>
-        <view
-          wx:for="{{cardTypes}}"
-          wx:key="_id"
-          class="select-option {{item.selected ? 'active' : ''}}"
-          bindtap="onCardTypeToggle"
-          data-index="{{index}}"
-        >
-          <view class="select-option-title">{{item.name}}</view>
-          <view class="select-option-meta">{{item.totalTimes}} 次 / ¥{{item.priceYuan}}</view>
+      <view class="field">
+        <view class="label">次卡充值</view>
+        <view wx:if="{{cardTypes.length === 0}}" class="empty compact-empty">暂无可购买次卡</view>
+        <view class="select-list" wx:else>
+          <view
+            wx:for="{{cardTypes}}"
+            wx:key="_id"
+            class="select-option {{item.selected ? 'active' : ''}}"
+            bindtap="onCardTypeToggle"
+            data-index="{{index}}"
+          >
+            <view class="select-option-title">{{item.name}}</view>
+            <view class="select-option-meta">{{item.totalTimes}} 次 / ¥{{item.priceYuan}}</view>
+          </view>
         </view>
       </view>
-    </view>
+    </block>
 
     <view class="field">
       <view class="label">支付方式</view>

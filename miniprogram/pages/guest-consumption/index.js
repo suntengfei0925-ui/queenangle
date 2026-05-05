@@ -1,5 +1,6 @@
 const { guardedPage } = require("../../utils/page");
 const api = require("../../utils/api");
+const basicConfig = require("../../utils/basic-config");
 const fmt = require("../../utils/format");
 const { paymentMethods } = require("../../utils/payment");
 
@@ -31,6 +32,7 @@ guardedPage({
     selectedItems: [],
     selectedPayment: {},
     paymentMethods,
+    configError: "",
     totalOriginalYuan: "0.00",
     form: {
       actualReceivedYuan: "",
@@ -43,17 +45,31 @@ guardedPage({
   },
 
   loadCatalog() {
-    api.callBusiness("listServiceCatalog", { onlyEnabled: true })
-      .then((catalog) => {
-        const categories = normalizeCatalog(catalog);
-        const first = categories[0] || {};
-        this.setData({
-          categories,
-          activeCategoryId: first._id || "",
-          activeServices: first.services || []
-        });
+    const cache = basicConfig.readBasicConfigCache();
+    if (cache) {
+      this.applyCatalog(cache.serviceCatalog);
+    }
+
+    basicConfig.refreshBasicConfig({ silent: !!cache })
+      .then((config) => {
+        if (config) this.applyCatalog(config.serviceCatalog);
       })
-      .catch(api.showError);
+      .catch((err) => {
+        this.setData({ configError: "配置加载失败，请重试" });
+        api.showError(err);
+      });
+  },
+
+  applyCatalog(catalog) {
+    const categories = normalizeCatalog(catalog);
+    const current = categories.find((item) => item._id === this.data.activeCategoryId);
+    const first = current || categories[0] || {};
+    this.setData({
+      configError: "",
+      categories,
+      activeCategoryId: first._id || "",
+      activeServices: first.services || []
+    });
   },
 
   selectCategory(e) {

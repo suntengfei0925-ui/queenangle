@@ -1,5 +1,6 @@
 const { guardedPage } = require("../../utils/page");
 const api = require("../../utils/api");
+const basicConfig = require("../../utils/basic-config");
 const fmt = require("../../utils/format");
 const { paymentMethods } = require("../../utils/payment");
 
@@ -13,10 +14,18 @@ function normalizeMember(member) {
   };
 }
 
-function normalizeCardType(item) {
+function normalizeTier(item) {
   return {
     ...item,
-    selected: false,
+    amountYuan: fmt.centToYuan(item.amountCent),
+    displayName: `充 ¥${fmt.centToYuan(item.amountCent)} / 享 ${item.discountLabel}`
+  };
+}
+
+function normalizeCardType(item, selectedIds = []) {
+  return {
+    ...item,
+    selected: selectedIds.indexOf(item._id) >= 0,
     priceYuan: fmt.centToYuan(item.priceCent)
   };
 }
@@ -41,6 +50,7 @@ guardedPage({
     cardSummary: buildCardSummary([]),
     selectedPayment: {},
     paymentMethods,
+    configError: "",
     submitting: false,
     form: {
       remark: ""
@@ -55,24 +65,52 @@ guardedPage({
       wx.redirectTo({ url: "/pages/members/index" });
       return;
     }
-    Promise.all([
-      api.callBusiness("getMemberDetail", { memberId }),
-      api.callBusiness("listRechargeTiers"),
-      api.callBusiness("listCardTypes", { onlyEnabled: true })
-    ])
-      .then(([detail, tiers, cardTypes]) => {
+    this.loadBasicOptions();
+    this.loadMemberDetail(memberId);
+  },
+
+  loadMemberDetail(memberId) {
+    api.callBusiness("getMemberDetail", { memberId })
+      .then((detail) => {
         const member = normalizeMember((detail && detail.member) || {});
         this.setData({
-          selectedMember: member,
-          tiers: (tiers || []).map((item) => ({
-            ...item,
-            amountYuan: fmt.centToYuan(item.amountCent),
-            displayName: `充 ¥${fmt.centToYuan(item.amountCent)} / 享 ${item.discountLabel}`
-          })),
-          cardTypes: (cardTypes || []).map(normalizeCardType)
+          selectedMember: member
         });
       })
       .catch(api.showError);
+  },
+
+  loadBasicOptions() {
+    const cache = basicConfig.readBasicConfigCache();
+    if (cache) {
+      this.applyBasicOptions(cache);
+    }
+
+    basicConfig.refreshBasicConfig({ silent: !!cache })
+      .then((config) => {
+        if (config) this.applyBasicOptions(config);
+      })
+      .catch((err) => {
+        this.setData({ configError: "配置加载失败，请重试" });
+        api.showError(err);
+      });
+  },
+
+  applyBasicOptions(config) {
+    const previousTierId = this.data.selectedTier && this.data.selectedTier._id;
+    const selectedCardIds = this.data.selectedCards.map((item) => item._id);
+    const tiers = (config.rechargeTiers || []).map(normalizeTier);
+    const selectedTier = tiers.find((item) => item._id === previousTierId) || {};
+    const cardTypes = (config.cardTypes || []).map((item) => normalizeCardType(item, selectedCardIds));
+    const selectedCards = cardTypes.filter((item) => item.selected);
+    this.setData({
+      configError: "",
+      tiers,
+      selectedTier,
+      cardTypes,
+      selectedCards,
+      cardSummary: buildCardSummary(selectedCards)
+    });
   },
 
   onTierChange(e) {

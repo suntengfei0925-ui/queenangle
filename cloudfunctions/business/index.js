@@ -27,6 +27,10 @@ function error(code, message) {
   return err;
 }
 
+function configOutdatedError() {
+  return error("CONFIG_OUTDATED", "配置已更新，请重新选择");
+}
+
 function getOpenid() {
   return cloud.getWXContext().OPENID;
 }
@@ -254,9 +258,9 @@ function normalizeInitialCardItemInputs(value) {
 async function buildInitialCardItems(cardInputs, transaction) {
   const cardItems = [];
   for (const input of cardInputs || []) {
-    const cardType = await getById(transaction.collection(C.CARD_TYPES), input.cardTypeId, "次卡类型不可用");
+    const cardType = await getById(transaction.collection(C.CARD_TYPES), input.cardTypeId, "配置已更新，请重新选择");
     if (!cardType || cardType.enabled === false) {
-      throw error("VALIDATION_ERROR", "次卡类型不可用");
+      throw configOutdatedError();
     }
 
     cardItems.push({
@@ -830,10 +834,10 @@ async function buildServiceItemSnapshots(event, context) {
       : yuanToCent(input.originalAmountYuan);
     if (originalAmountCent < 0) throw error("VALIDATION_ERROR", "单项原价不能小于 0");
 
-    const service = await getById(serviceCollection, input.serviceId, "服务项目不存在");
-    if (service.enabled === false) throw error("VALIDATION_ERROR", "服务项目已停用");
-    const category = await getById(categoryCollection, service.categoryId, "服务分类不存在");
-    if (category.enabled === false) throw error("VALIDATION_ERROR", "服务分类已停用");
+    const service = await getById(serviceCollection, input.serviceId, "配置已更新，请重新选择");
+    if (service.enabled === false) throw configOutdatedError();
+    const category = await getById(categoryCollection, service.categoryId, "配置已更新，请重新选择");
+    if (category.enabled === false) throw configOutdatedError();
 
     snapshots.push({
       categoryId: category._id,
@@ -908,10 +912,11 @@ function applyCheckoutCardUses(cardBalances, cardInputs) {
   };
 }
 
-async function listRechargeTiers() {
+async function listRechargeTiers(event = {}) {
   await assertOwner();
   const res = await db.collection(C.TIERS).orderBy("amountCent", "asc").limit(100).get();
-  return res.data || [];
+  const tiers = res.data || [];
+  return event.onlyEnabled ? tiers.filter((item) => item.enabled !== false) : tiers;
 }
 
 async function saveRechargeTier(event) {
@@ -946,10 +951,29 @@ async function saveRechargeTier(event) {
 async function listCardTypes(event) {
   await assertOwner();
   const onlyEnabled = !!event.onlyEnabled;
-  const collection = db.collection(C.CARD_TYPES);
-  const query = onlyEnabled ? collection.where({ enabled: true }) : collection;
-  const res = await query.orderBy("updatedAt", "desc").limit(100).get();
-  return res.data || [];
+  const res = await db.collection(C.CARD_TYPES).orderBy("updatedAt", "desc").limit(100).get();
+  const cardTypes = res.data || [];
+  return onlyEnabled ? cardTypes.filter((item) => item.enabled !== false) : cardTypes;
+}
+
+async function getBasicConfig() {
+  await assertOwner();
+  const [serviceCatalog, cardTypes, rechargeTiers] = await Promise.all([
+    listServiceCatalog({ onlyEnabled: true }),
+    listCardTypes({ onlyEnabled: true }),
+    listRechargeTiers({ onlyEnabled: true })
+  ]);
+  const snapshot = {
+    serviceCatalog,
+    cardTypes,
+    rechargeTiers
+  };
+
+  return {
+    ...snapshot,
+    version: hashSnapshot(snapshot),
+    updatedAt: nowDate().toISOString()
+  };
 }
 
 async function saveCardType(event) {
@@ -1041,7 +1065,10 @@ async function createMemberRecharge(event) {
 
   return db.runTransaction(async (transaction) => {
     const member = await getById(transaction.collection(C.MEMBERS), memberId, "会员不存在");
-    const tier = await getById(transaction.collection(C.TIERS), tierId, "充值档位不存在");
+    const tier = await getById(transaction.collection(C.TIERS), tierId, "配置已更新，请重新选择");
+    if (!tier || tier.enabled === false) {
+      throw configOutdatedError();
+    }
 
     const before = pickMemberState(member);
     const amountCent = toCent(tier.amountCent);
@@ -1362,18 +1389,18 @@ async function buildCardPurchaseItems(event, transaction) {
   const items = [];
 
   for (const cardTypeId of cardTypeIds) {
-    const cardType = await getById(transaction.collection(C.CARD_TYPES), cardTypeId, "次卡类型不可用");
+    const cardType = await getById(transaction.collection(C.CARD_TYPES), cardTypeId, "配置已更新，请重新选择");
     if (!cardType || cardType.enabled === false) {
-      throw error("VALIDATION_ERROR", "次卡类型不可用");
+      throw configOutdatedError();
     }
 
     const purchaseTimes = Number(cardType.totalTimes || 0);
     const priceCent = toCent(cardType.priceCent);
     if (!Number.isInteger(purchaseTimes) || purchaseTimes <= 0) {
-      throw error("VALIDATION_ERROR", "次卡类型不可用");
+      throw configOutdatedError();
     }
     if (priceCent < 0) {
-      throw error("VALIDATION_ERROR", "次卡类型不可用");
+      throw configOutdatedError();
     }
 
     items.push({
@@ -1696,6 +1723,7 @@ const actions = {
   listRechargeTiers,
   saveRechargeTier,
   listCardTypes,
+  getBasicConfig,
   saveCardType,
   toggleCardType,
   createGuestConsumption,

@@ -1,5 +1,6 @@
 const { guardedPage } = require("../../utils/page");
 const api = require("../../utils/api");
+const basicConfig = require("../../utils/basic-config");
 const fmt = require("../../utils/format");
 const signatureUtils = require("../../utils/signature");
 const { paymentMethods } = require("../../utils/payment");
@@ -132,6 +133,7 @@ guardedPage({
     selectedMember: {},
     selectedPayment: {},
     paymentMethods,
+    configError: "",
     saving: false,
     form: {
       remark: ""
@@ -161,25 +163,50 @@ guardedPage({
       wx.redirectTo({ url: "/pages/members/index" });
       return;
     }
-    Promise.all([
-      api.callBusiness("getMemberDetail", { memberId }),
-      api.callBusiness("listServiceCatalog", { onlyEnabled: true })
-    ])
-      .then(([detail, catalog]) => {
+    this.loadCatalog();
+    this.loadMemberDetail(memberId);
+  },
+
+  loadMemberDetail(memberId) {
+    api.callBusiness("getMemberDetail", { memberId })
+      .then((detail) => {
         const member = normalizeMember((detail && detail.member) || {});
-        const categories = normalizeCatalog(catalog);
-        const first = categories[0] || {};
         this.setData({
           selectedMember: member,
           availableCards: cardBalancesToOptions(member.cardBalances),
-          selectedCards: [],
-          categories,
-          activeCategoryId: first._id || "",
-          activeServices: first.services || []
+          selectedCards: []
         });
         this.refreshCalc();
       })
       .catch(api.showError);
+  },
+
+  loadCatalog() {
+    const cache = basicConfig.readBasicConfigCache();
+    if (cache) {
+      this.applyCatalog(cache.serviceCatalog);
+    }
+
+    basicConfig.refreshBasicConfig({ silent: !!cache })
+      .then((config) => {
+        if (config) this.applyCatalog(config.serviceCatalog);
+      })
+      .catch((err) => {
+        this.setData({ configError: "配置加载失败，请重试" });
+        api.showError(err);
+      });
+  },
+
+  applyCatalog(catalog) {
+    const categories = normalizeCatalog(catalog);
+    const current = categories.find((item) => item._id === this.data.activeCategoryId);
+    const first = current || categories[0] || {};
+    this.setData({
+      configError: "",
+      categories,
+      activeCategoryId: first._id || "",
+      activeServices: first.services || []
+    });
   },
 
   selectCategory(e) {

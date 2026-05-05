@@ -22,5 +22,7 @@ App({
       env: this.globalData.cloudEnv || undefined,
       traceUser: true
     });
+
+    require("./utils/basic-config").preloadBasicConfig();
   }
 });

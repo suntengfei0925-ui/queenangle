@@ -2,7 +2,8 @@
   <view class="panel form">
     <view class="field">
       <view class="label">消费项目</view>
-      <view class="service-picker">
+      <view wx:if="{{configError}}" class="empty compact-empty">{{configError}}</view>
+      <view wx:else class="service-picker">
         <view class="category-list">
           <view
             wx:for="{{categories}}"

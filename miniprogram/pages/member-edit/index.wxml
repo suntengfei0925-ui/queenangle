@@ -76,6 +76,7 @@
       <view class="initial-card-block">
         <view class="compact-label wide-label">初始次卡</view>
         <view wx:if="{{loadingCards}}" class="muted">正在加载次卡类型</view>
+        <view wx:elif="{{cardConfigError}}" class="muted">{{cardConfigError}}</view>
         <view wx:elif="{{initialCardTypes.length === 0}}" class="muted">暂无启用次卡</view>
         <view wx:else class="initial-card-list">
           <view

@@ -1,5 +1,6 @@
 const { guardedPage } = require("../../../utils/page");
 const api = require("../../../utils/api");
+const basicConfig = require("../../../utils/basic-config");
 
 const FIXED_CATEGORY_NAMES = ["美甲", "美睫"];
 
@@ -115,6 +116,7 @@ guardedPage({
     })
       .then(() => {
         wx.showToast({ title: "已保存" });
+        basicConfig.refreshBasicConfig({ silent: true });
         this.backToList();
         this.loadData();
       })
@@ -150,7 +152,10 @@ guardedPage({
       id: e.currentTarget.dataset.id,
       enabled: e.currentTarget.dataset.enabled
     })
-      .then(() => this.loadData())
+      .then(() => {
+        basicConfig.refreshBasicConfig({ silent: true });
+        this.loadData();
+      })
       .catch(api.showError);
   },
 

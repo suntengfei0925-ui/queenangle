@@ -1,5 +1,6 @@
 const { guardedPage } = require("../../../utils/page");
 const api = require("../../../utils/api");
+const basicConfig = require("../../../utils/basic-config");
 const fmt = require("../../../utils/format");
 
 const emptyForm = {
@@ -53,6 +54,7 @@ guardedPage({
     })
       .then(() => {
         wx.showToast({ title: "已保存" });
+        basicConfig.refreshBasicConfig({ silent: true });
         this.backToList();
         this.loadData();
       })
