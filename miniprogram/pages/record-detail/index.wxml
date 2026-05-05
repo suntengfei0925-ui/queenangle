@@ -37,6 +37,15 @@
     <view>{{record.remark}}</view>
   </view>
 
+  <view wx:if="{{record.signatureFileId}}" class="section panel stack">
+    <view class="sub-title">客户签名</view>
+    <view class="row">
+      <view class="muted">签字时间</view>
+      <view>{{record.signatureSignedAtText}}</view>
+    </view>
+    <image class="signature-image" src="{{record.signatureFileId}}" mode="aspectFit" bindtap="previewSignature" />
+  </view>
+
   <view wx:if="{{record.status === 'active'}}" class="button-row">
     <button class="danger-btn" bindtap="voidRecord">作废记录</button>
   </view>

@@ -130,6 +130,90 @@
       <view class="label">备注</view>
       <input class="input" value="{{form.remark}}" data-field="remark" bindinput="onInput" placeholder="可选" />
     </view>
+    <view wx:if="{{signature.tempFilePath}}" class="signature-preview {{signature.valid ? '' : 'invalid'}}">
+      <view class="row">
+        <view>
+          <view class="sub-title">客户已签字</view>
+          <view wx:if="{{signature.valid}}" class="muted">再次点击完成结账后保存记录</view>
+          <view wx:else class="danger">结账内容已修改，请重新签字</view>
+        </view>
+        <button class="secondary resign-btn" size="mini" bindtap="startSignatureFlow">重新签字</button>
+      </view>
+      <image class="signature-thumb" src="{{signature.tempFilePath}}" mode="aspectFit" bindtap="previewSignature" />
+    </view>
     <button class="primary" loading="{{saving}}" disabled="{{saving}}" bindtap="submit">完成结账</button>
+  </view>
+
+  <view wx:if="{{checkoutConfirm.visible}}" class="modal-mask" catchtouchmove="noop">
+    <view class="checkout-modal">
+      <view class="modal-title">请确认本次会员结账</view>
+      <scroll-view class="modal-scroll" scroll-y="true">
+        <view class="confirm-section">
+          <view class="confirm-section-title">余额变化</view>
+          <view class="confirm-row">
+            <view class="muted">期初余额</view>
+            <view class="money">¥{{checkoutConfirm.view.balanceBeforeYuan}}</view>
+          </view>
+          <view class="confirm-row highlight-row">
+            <view>余额支付</view>
+            <view class="money danger">-¥{{checkoutConfirm.view.balancePayYuan}}</view>
+          </view>
+          <view class="confirm-row">
+            <view class="muted">消费后余额</view>
+            <view class="money">¥{{checkoutConfirm.view.balanceAfterYuan}}</view>
+          </view>
+        </view>
+
+        <view wx:if="{{checkoutConfirm.view.hasServiceItems}}" class="confirm-section">
+          <view class="confirm-section-title">消费金额</view>
+          <view class="confirm-item-list">
+            <view wx:for="{{checkoutConfirm.view.serviceItems}}" wx:key="key" class="confirm-item-row">
+              <view>{{item.displayName}}</view>
+              <view class="money">¥{{item.originalYuan}}</view>
+            </view>
+          </view>
+          <view class="confirm-row">
+            <view class="muted">项目原价合计</view>
+            <view class="money">¥{{checkoutConfirm.view.originalYuan}}</view>
+          </view>
+          <view class="confirm-row">
+            <view class="muted">当前折扣</view>
+            <view>{{checkoutConfirm.view.discountText}}</view>
+          </view>
+          <view class="confirm-row highlight-row">
+            <view>折后金额</view>
+            <view class="money">¥{{checkoutConfirm.view.payableYuan}}</view>
+          </view>
+          <view class="confirm-row">
+            <view class="muted">补差价</view>
+            <view class="money">¥{{checkoutConfirm.view.extraPayYuan}}</view>
+          </view>
+          <view wx:if="{{checkoutConfirm.view.extraPaymentText !== '-'}}" class="confirm-row">
+            <view class="muted">补差价支付方式</view>
+            <view>{{checkoutConfirm.view.extraPaymentText}}</view>
+          </view>
+        </view>
+
+        <view wx:if="{{checkoutConfirm.view.cardItems.length > 0}}" class="confirm-section">
+          <view class="confirm-section-title">次卡变化</view>
+          <view wx:for="{{checkoutConfirm.view.cardItems}}" wx:key="key" class="card-change">
+            <view class="card-change-name">{{item.cardName}}</view>
+            <view class="card-change-meta">
+              <text class="danger">扣 {{item.useTimes}} 次</text>
+              <text>使用后剩余 {{item.remainingTimesAfter}} 次</text>
+            </view>
+          </view>
+        </view>
+
+        <view wx:if="{{checkoutConfirm.view.hasRemark}}" class="confirm-section">
+          <view class="confirm-section-title">备注</view>
+          <view>{{checkoutConfirm.view.remark}}</view>
+        </view>
+      </scroll-view>
+      <view class="modal-actions">
+        <button class="secondary" bindtap="cancelCheckoutConfirm">返回修改</button>
+        <button class="primary" bindtap="confirmAndSign">确认并签字</button>
+      </view>
+    </view>
   </view>
 </view>

@@ -7,6 +7,7 @@
     "pages/auth/no-permission",
     "pages/guest-consumption/index",
     "pages/member-consumption/index",
+    "pages/member-signature/index",
     "pages/member-recharge/index",
     "pages/member-detail/index",
     "pages/member-edit/index",

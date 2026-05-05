@@ -1,0 +1,33 @@
+.signature-page {
+  display: grid;
+  grid-template-rows: 76rpx minmax(0, 1fr) 88rpx;
+  gap: 18rpx;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 20rpx 28rpx;
+  background: #f6f7f9;
+}
+
+.signature-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #111827;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.signature-canvas {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  border: 2rpx solid #d1d5db;
+  border-radius: 10rpx;
+  background: #ffffff;
+}
+
+.signature-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18rpx;
+}

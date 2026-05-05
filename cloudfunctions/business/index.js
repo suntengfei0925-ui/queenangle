@@ -57,6 +57,36 @@ function normalizeText(value) {
   return String(value === null || value === undefined ? "" : value).trim();
 }
 
+function normalizeForHash(value) {
+  if (Array.isArray(value)) {
+    return value.map(normalizeForHash);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((acc, key) => {
+      const item = value[key];
+      acc[key] = item === undefined ? null : normalizeForHash(item);
+      return acc;
+    }, {});
+  }
+
+  return value === undefined ? null : value;
+}
+
+function stableStringify(value) {
+  return JSON.stringify(normalizeForHash(value));
+}
+
+function hashSnapshot(snapshot) {
+  const text = stableStringify(snapshot);
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 function isCollectionNotFound(err) {
   const message = String((err && (err.message || err.errMsg)) || "");
   return err && (err.errCode === -502005 || message.includes("DATABASE_COLLECTION_NOT_EXIST"));
@@ -794,6 +824,7 @@ function applyCheckoutCardUses(cardBalances, cardInputs) {
       cardTypeId: card.cardTypeId,
       cardName: card.cardName,
       useTimes: 1,
+      remainingTimesBefore: remainingTimes,
       remainingTimesAfter
     });
   });
@@ -997,6 +1028,66 @@ async function createMemberRecharge(event) {
   });
 }
 
+function buildCheckoutPaymentMethod(originalAmountCent, balancePayCent, extraPayCent, selectedPayment) {
+  if (originalAmountCent <= 0) return "";
+  if (balancePayCent > 0 && extraPayCent > 0) return "mixed";
+  if (balancePayCent > 0) return "member_balance";
+  return selectedPayment || "";
+}
+
+function buildCheckoutSignatureSnapshot(input) {
+  return {
+    version: 1,
+    member: {
+      memberId: input.memberId || "",
+      memberName: input.member.name || "",
+      phone: input.member.phone || ""
+    },
+    serviceItems: input.serviceItems,
+    cardItems: input.cardItems,
+    balanceBeforeCent: input.before.balanceCent,
+    discountApplied: input.discount || null,
+    discountLabelApplied: input.originalAmountCent > 0 ? discountLabel(input.discount) : "",
+    originalAmountCent: input.originalAmountCent,
+    consumptionAmountCent: input.payableCent,
+    balancePayCent: input.balancePayCent,
+    extraPayCent: input.extraPayCent,
+    extraPaymentMethod: input.extraPaymentMethod,
+    paymentMethod: input.paymentMethod,
+    balanceAfterCent: input.after.balanceCent,
+    remark: normalizeText(input.remark)
+  };
+}
+
+function normalizeCheckoutSignature(event, expectedSnapshot) {
+  const signatureFileId = normalizeText(event.signatureFileId);
+  const signatureSignedAtInput = normalizeText(event.signatureSignedAt);
+  const signatureSnapshot = event.signatureSnapshot;
+  const signatureSnapshotHash = normalizeText(event.signatureSnapshotHash);
+
+  if (!signatureFileId || !signatureSignedAtInput || !signatureSnapshot || !signatureSnapshotHash) {
+    throw error("SIGNATURE_REQUIRED", "请先完成客户确认和签字");
+  }
+
+  const signatureSignedAt = new Date(signatureSignedAtInput);
+  if (Number.isNaN(signatureSignedAt.getTime())) {
+    throw error("VALIDATION_ERROR", "签字时间不正确");
+  }
+
+  const clientHash = hashSnapshot(signatureSnapshot);
+  const expectedHash = hashSnapshot(expectedSnapshot);
+  if (clientHash !== signatureSnapshotHash || expectedHash !== signatureSnapshotHash) {
+    throw error("SIGNATURE_MISMATCH", "签名已失效，请重新确认并签字");
+  }
+
+  return {
+    signatureFileId,
+    signatureSignedAt,
+    signatureSnapshot: expectedSnapshot,
+    signatureSnapshotHash: expectedHash
+  };
+}
+
 async function createMemberCheckout(event) {
   const openid = await assertOwner();
   const memberId = event.memberId;
@@ -1018,7 +1109,9 @@ async function createMemberCheckout(event) {
 
     let payableCent = originalAmountCent;
     const hasBalance = before.balanceCent > 0;
-    const discount = originalAmountCent > 0 && hasBalance ? before.currentDiscount : null;
+    const discount = originalAmountCent > 0 && hasBalance
+      ? Number(before.currentDiscount || 0) || null
+      : null;
 
     if (hasBalance && discount) {
       payableCent = Math.round(originalAmountCent * discount / 10);
@@ -1026,9 +1119,10 @@ async function createMemberCheckout(event) {
 
     const balancePayCent = Math.min(before.balanceCent, payableCent);
     const extraPayCent = payableCent - balancePayCent;
+    const extraPaymentMethod = extraPayCent > 0 ? (event.extraPaymentMethod || event.paymentMethod) : "";
 
     if (extraPayCent > 0) {
-      assertPayment(event.extraPaymentMethod || event.paymentMethod, "补差价支付方式");
+      assertPayment(extraPaymentMethod, "补差价支付方式");
     }
 
     const balanceAfterCent = before.balanceCent - balancePayCent;
@@ -1041,11 +1135,28 @@ async function createMemberCheckout(event) {
       cardBalances: cardResult.cardBalances
     };
 
-    const paymentMethod = originalAmountCent <= 0
-      ? ""
-      : balancePayCent > 0 && extraPayCent > 0
-      ? "mixed"
-      : balancePayCent > 0 ? "member_balance" : (event.paymentMethod || event.extraPaymentMethod);
+    const paymentMethod = buildCheckoutPaymentMethod(
+      originalAmountCent,
+      balancePayCent,
+      extraPayCent,
+      extraPaymentMethod
+    );
+    const signaturePayload = normalizeCheckoutSignature(event, buildCheckoutSignatureSnapshot({
+      memberId,
+      member,
+      serviceItems,
+      cardItems: cardResult.cardItems,
+      before,
+      after,
+      originalAmountCent,
+      payableCent,
+      balancePayCent,
+      extraPayCent,
+      extraPaymentMethod,
+      paymentMethod,
+      discount,
+      remark: event.remark
+    }));
 
     const recordRes = await transaction.collection(C.RECORDS).add({
       data: {
@@ -1063,11 +1174,12 @@ async function createMemberCheckout(event) {
         balancePayCent,
         extraPayCent,
         paymentMethod,
-        extraPaymentMethod: extraPayCent > 0 ? (event.extraPaymentMethod || event.paymentMethod) : "",
+        extraPaymentMethod,
         discountApplied: discount,
         discountLabelApplied: originalAmountCent > 0 ? discountLabel(discount) : "",
         memberBefore: before,
         memberAfter: after,
+        ...signaturePayload,
         remark: normalizeText(event.remark),
         occurredAt,
         businessDate: businessDate(occurredAt),

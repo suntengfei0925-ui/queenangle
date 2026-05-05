@@ -126,6 +126,7 @@ guardedPage({
           typeText: fmt.formatRecordType(record.type),
           statusText: record.status === "void" ? "已作废" : "有效",
           timeText: fmt.formatDateTime(record.occurredAt || record.createdAt),
+          signatureSignedAtText: fmt.formatDateTime(record.signatureSignedAt),
           serviceItems: normalizeServiceItems(record),
           cardItems,
           cardPurchaseTotalTimes: record.type === "card_purchase"
@@ -158,5 +159,26 @@ guardedPage({
           .catch(api.showError);
       }
     });
+  },
+
+  previewSignature() {
+    const fileId = this.data.record.signatureFileId;
+    if (!fileId) return;
+
+    wx.cloud.getTempFileURL({ fileList: [fileId] })
+      .then((res) => {
+        const item = (res.fileList || [])[0] || {};
+        const url = item.tempFileURL || fileId;
+        wx.previewImage({
+          current: url,
+          urls: [url]
+        });
+      })
+      .catch(() => {
+        wx.previewImage({
+          current: fileId,
+          urls: [fileId]
+        });
+      });
   }
 });
