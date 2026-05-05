@@ -1154,8 +1154,21 @@ function normalizeServiceItemInputs(event) {
   }];
 }
 
+function assertUniqueServiceItems(inputs) {
+  const seen = {};
+  for (const input of inputs) {
+    const serviceId = normalizeText(input && input.serviceId);
+    if (!serviceId) continue;
+    if (seen[serviceId]) {
+      throw error("VALIDATION_ERROR", "同一服务项目不能重复选择");
+    }
+    seen[serviceId] = true;
+  }
+}
+
 async function buildServiceItemSnapshots(event, context) {
   const inputs = normalizeServiceItemInputs(event);
+  assertUniqueServiceItems(inputs);
   if (inputs.length === 0) throw error("VALIDATION_ERROR", "请选择至少一个服务项目");
 
   const serviceCollection = getCollection(context, C.SERVICES);

@@ -13,6 +13,22 @@ function normalizeCatalog(catalog) {
   return (catalog || []).filter((category) => (category.services || []).length > 0);
 }
 
+function selectedServiceIdMap(selectedItems) {
+  const map = {};
+  (selectedItems || []).forEach((item) => {
+    if (item.serviceId) map[item.serviceId] = true;
+  });
+  return map;
+}
+
+function markSelectedServices(services, selectedItems) {
+  const selectedMap = selectedServiceIdMap(selectedItems);
+  return (services || []).map((service) => ({
+    ...service,
+    selected: !!selectedMap[service._id]
+  }));
+}
+
 function selectedItem(service, category) {
   return {
     key: `${service._id}-${Date.now()}-${Math.random()}`,
@@ -39,6 +55,7 @@ guardedPage({
     paymentMethods,
     configError: "",
     totalOriginalYuan: "0.00",
+    actualReceivedAutoSync: true,
     form: {
       actualReceivedYuan: "",
       remark: ""
@@ -100,7 +117,7 @@ guardedPage({
       configError: "",
       categories,
       activeCategoryId: first._id || "",
-      activeServices: first.services || []
+      activeServices: markSelectedServices(first.services || [], this.data.selectedItems)
     });
   },
 
@@ -109,7 +126,7 @@ guardedPage({
     const category = this.data.categories.find((item) => item._id === categoryId) || {};
     this.setData({
       activeCategoryId: categoryId,
-      activeServices: category.services || []
+      activeServices: markSelectedServices(category.services || [], this.data.selectedItems)
     });
   },
 
@@ -119,8 +136,14 @@ guardedPage({
     if (!category) return;
     const service = (category.services || []).find((item) => item._id === serviceId);
     if (!service) return;
+    const selectedItems = this.data.selectedItems || [];
+    const selectedIndex = selectedItems.findIndex((item) => item.serviceId === serviceId);
+    const nextSelectedItems = selectedIndex >= 0
+      ? selectedItems.filter((_, index) => index !== selectedIndex)
+      : [...selectedItems, selectedItem(service, category)];
     this.setData({
-      selectedItems: [...this.data.selectedItems, selectedItem(service, category)]
+      selectedItems: nextSelectedItems,
+      activeServices: markSelectedServices(category.services || [], nextSelectedItems)
     });
     this.refreshTotal();
   },
@@ -128,7 +151,11 @@ guardedPage({
   removeItem(e) {
     const index = Number(e.currentTarget.dataset.index);
     const selectedItems = this.data.selectedItems.filter((_, itemIndex) => itemIndex !== index);
-    this.setData({ selectedItems });
+    const category = this.data.categories.find((item) => item._id === this.data.activeCategoryId) || {};
+    this.setData({
+      selectedItems,
+      activeServices: markSelectedServices(category.services || [], selectedItems)
+    });
     this.refreshTotal();
   },
 
@@ -144,12 +171,29 @@ guardedPage({
       if (!isAmountFilled(item.originalAmountYuan)) return sum;
       return sum + fmt.yuanInputToCent(item.originalAmountYuan);
     }, 0);
-    this.setData({ totalOriginalYuan: fmt.centToYuan(totalCent) });
+    const nextData = {
+      totalOriginalYuan: fmt.centToYuan(totalCent)
+    };
+    if (this.data.selectedItems.length === 0) {
+      nextData.actualReceivedAutoSync = true;
+      nextData["form.actualReceivedYuan"] = "";
+    } else if (this.data.actualReceivedAutoSync) {
+      nextData["form.actualReceivedYuan"] = fmt.centToYuan(totalCent);
+    }
+    this.setData(nextData);
   },
 
   onInput(e) {
+    const field = e.currentTarget.dataset.field;
+    const value = e.detail.value;
+    const nextData = {
+      [`form.${field}`]: value
+    };
+    if (field === "actualReceivedYuan") {
+      nextData.actualReceivedAutoSync = String(value).trim() === "";
+    }
     this.setData({
-      [`form.${e.currentTarget.dataset.field}`]: e.detail.value
+      ...nextData
     });
   },
 

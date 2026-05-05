@@ -52,6 +52,13 @@
   text-align: center;
 }
 
+.service-item.selected {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #065f46;
+  font-weight: 600;
+}
+
 .service-name {
   max-width: 4.5em;
   overflow: hidden;

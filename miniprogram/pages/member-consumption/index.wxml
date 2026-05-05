@@ -62,7 +62,7 @@
             <view
               wx:for="{{activeServices}}"
               wx:key="_id"
-              class="service-item"
+              class="service-item {{item.selected ? 'selected' : ''}}"
               bindtap="addService"
               data-id="{{item._id}}"
             >
