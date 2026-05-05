@@ -273,6 +273,8 @@ guardedPage({
     selectedServicePerson: {},
     servicePeople: [],
     servicePeopleLoadError: "",
+    servicePeopleRefreshing: false,
+    memberLoading: false,
     servicePersonPickerVisible: false,
     paymentMethods,
     continueExtraCheckout: false,
@@ -314,10 +316,14 @@ guardedPage({
   initServicePerson() {
     const current = servicePerson.getCurrentServicePerson();
     const cachedPeople = servicePerson.readServicePeopleCache();
+    const cachedSelected = current.openid
+      ? cachedPeople.find((person) => person.openid === current.openid)
+      : null;
     this.setData({
-      selectedServicePerson: current.openid && current.name ? current : {},
+      selectedServicePerson: cachedSelected || (current.openid && current.name ? current : {}),
       servicePeople: cachedPeople,
-      servicePeopleLoadError: ""
+      servicePeopleLoadError: "",
+      servicePeopleRefreshing: true
     });
 
     servicePerson.refreshServicePeople()
@@ -329,26 +335,35 @@ guardedPage({
         this.setData({
           selectedServicePerson: refreshedSelected,
           servicePeople: people,
-          servicePeopleLoadError: ""
+          servicePeopleLoadError: "",
+          servicePeopleRefreshing: false
         }, () => this.refreshSignatureValidity());
       })
       .catch(() => {
-        this.setData({ servicePeopleLoadError: "服务人名单加载失败" });
+        this.setData({
+          servicePeopleLoadError: "服务人名单加载失败",
+          servicePeopleRefreshing: false
+        });
       });
   },
 
   loadMemberDetail(memberId) {
+    this.setData({ memberLoading: true });
     api.callBusiness("getMemberDetail", { memberId })
       .then((detail) => {
         const member = normalizeMember((detail && detail.member) || {});
         this.setData({
           selectedMember: member,
           availableCards: cardBalancesToOptions(member.cardBalances),
-          selectedCards: []
+          selectedCards: [],
+          memberLoading: false
         });
         this.refreshCalc();
       })
-      .catch(api.showError);
+      .catch((err) => {
+        this.setData({ memberLoading: false });
+        api.showError(err);
+      });
   },
 
   loadCatalog() {
@@ -611,6 +626,8 @@ guardedPage({
 
   validateReadyForSignature() {
     if (this.data.saving) return;
+    if (this.data.memberLoading) return api.showError(new Error("会员信息加载中，请稍后"));
+    if (this.data.servicePeopleRefreshing) return api.showError(new Error("服务人信息加载中，请稍后"));
     if (!this.data.selectedMember._id) return api.showError(new Error("请选择会员"));
     if (!this.validateServicePerson()) return;
     if (!this.validateCheckout()) return;
