@@ -16,10 +16,11 @@
   </view>
 
   <view wx:if="{{record.cardItems.length > 0}}" class="section panel stack">
-    <view class="sub-title">次卡明细</view>
+    <view class="sub-title">{{record.type === 'member_initial_balance' ? '初始次卡' : '次卡明细'}}</view>
     <view wx:for="{{record.cardItems}}" wx:key="key" class="row">
       <view>{{item.cardName}}</view>
       <view wx:if="{{record.type === 'card_purchase'}}" class="money">+{{item.purchaseTimes}} 次 / ¥{{item.priceYuan}}</view>
+      <view wx:elif="{{record.type === 'member_initial_balance'}}" class="money">初始 {{item.initialTimes}} 次</view>
       <view wx:else class="money">扣 {{item.useTimes}} 次，剩余 {{item.remainingTimesAfter}} 次</view>
     </view>
   </view>

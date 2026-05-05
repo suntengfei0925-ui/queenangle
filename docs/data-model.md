@@ -153,7 +153,20 @@ discount
 discountLabel
 offlineBook
 offlinePage
+cardItems[]
 remark
+```
+
+`cardItems` 为补录初始次卡快照：
+
+```json
+[
+  {
+    "cardTypeId": "card_type_id",
+    "cardName": "手部护理 10 次卡",
+    "initialTimes": 13
+  }
+]
 ```
 
 `member_checkout` 用于会员结账，可同时包含普通项目和次卡。核心字段：
@@ -213,5 +226,13 @@ deltaTimes
 remainingTimes
 remark
 createdAt
+```
+
+`type` 支持：
+
+```text
+initial_card
+purchase
+use
 ```
 

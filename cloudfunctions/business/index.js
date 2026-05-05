@@ -202,6 +202,7 @@ function normalizeMemberImport(value) {
   const discount = normalizeInitialDiscount(input.discount);
   const offlineBook = normalizeText(input.offlineBook);
   const offlinePage = normalizeOfflinePage(input.offlinePage);
+  const cardItems = normalizeInitialCardItemInputs(input.cardItems);
 
   if (offlineBook && !OFFLINE_BOOKS.includes(offlineBook)) {
     throw error("VALIDATION_ERROR", "来源本子不正确");
@@ -210,7 +211,7 @@ function normalizeMemberImport(value) {
     throw error("VALIDATION_ERROR", "来源本子和页码需要同时填写");
   }
 
-  const imported = initialBalanceCent > 0 || !!discount || (!!offlineBook && !!offlinePage);
+  const imported = initialBalanceCent > 0 || !!discount || (!!offlineBook && !!offlinePage) || cardItems.length > 0;
   const importRemark = imported && offlineBook && offlinePage
     ? `老会员补录；来源：${offlineBook}；页码：${offlinePage}`
     : imported ? "老会员补录" : "";
@@ -221,8 +222,58 @@ function normalizeMemberImport(value) {
     discountLabel: discountLabel(discount),
     offlineBook: offlineBook || "",
     offlinePage,
-    importRemark
+    importRemark,
+    cardItems
   };
+}
+
+function normalizeInitialCardItemInputs(value) {
+  const rawItems = Array.isArray(value) ? value : [];
+  const seen = new Set();
+
+  return rawItems.map((item) => {
+    const cardTypeId = normalizeText(item && item.cardTypeId);
+    const timesText = normalizeText(
+      item && item.initialTimes !== undefined ? item.initialTimes : item && item.remainingTimes
+    );
+
+    if (!cardTypeId) throw error("VALIDATION_ERROR", "次卡类型不能为空");
+    if (seen.has(cardTypeId)) throw error("VALIDATION_ERROR", "同一种次卡不能重复补录");
+    seen.add(cardTypeId);
+    if (!/^[1-9]\d*$/.test(timesText)) {
+      throw error("VALIDATION_ERROR", "补录次卡剩余次数必须是正整数");
+    }
+
+    return {
+      cardTypeId,
+      initialTimes: Number(timesText)
+    };
+  });
+}
+
+async function buildInitialCardItems(cardInputs, transaction) {
+  const cardItems = [];
+  for (const input of cardInputs || []) {
+    const cardType = await getById(transaction.collection(C.CARD_TYPES), input.cardTypeId, "次卡类型不可用");
+    if (!cardType || cardType.enabled === false) {
+      throw error("VALIDATION_ERROR", "次卡类型不可用");
+    }
+
+    cardItems.push({
+      cardTypeId: cardType._id,
+      cardName: cardType.name,
+      initialTimes: input.initialTimes
+    });
+  }
+  return cardItems;
+}
+
+function initialCardItemsToBalances(cardItems) {
+  return (cardItems || []).map((item) => ({
+    cardTypeId: item.cardTypeId,
+    cardName: item.cardName,
+    remainingTimes: Number(item.initialTimes || 0)
+  }));
 }
 
 function serviceItemLabel(item) {
@@ -347,11 +398,15 @@ async function saveMember(event) {
       return { id };
     }
 
+    const initialCardItems = importInfo.imported
+      ? await buildInitialCardItems(importInfo.cardItems, transaction)
+      : [];
+    const initialCardBalances = initialCardItemsToBalances(initialCardItems);
     const initialState = {
       balanceCent: importInfo.imported ? importInfo.initialBalanceCent : 0,
       currentDiscount: importInfo.imported ? importInfo.discount : null,
       currentDiscountLabel: importInfo.imported ? importInfo.discountLabel : "无折扣",
-      cardBalances: []
+      cardBalances: initialCardBalances
     };
     const memberData = {
       ...payload,
@@ -385,6 +440,7 @@ async function saveMember(event) {
         discountLabel: importInfo.discountLabel,
         offlineBook: importInfo.offlineBook,
         offlinePage: importInfo.offlinePage,
+        cardItems: initialCardItems,
         remark: importInfo.importRemark,
         memberBefore: null,
         memberAfter: initialState,
@@ -408,6 +464,23 @@ async function saveMember(event) {
         createdAt: db.serverDate()
       }
     });
+
+    for (const item of initialCardItems) {
+      await transaction.collection(C.CARD_FLOWS).add({
+        data: {
+          memberId: addRes._id,
+          memberName: name,
+          type: "initial_card",
+          sourceRecordId: recordRes._id,
+          cardTypeId: item.cardTypeId,
+          cardName: item.cardName,
+          deltaTimes: item.initialTimes,
+          remainingTimes: item.initialTimes,
+          remark: importInfo.importRemark,
+          createdAt: db.serverDate()
+        }
+      });
+    }
 
     return { id: addRes._id };
   });
@@ -1394,6 +1467,9 @@ function replayMemberState(records, ignoredRecordId) {
       state.balanceCent = toCent(record.amountCent);
       state.currentDiscount = record.discount || null;
       state.currentDiscountLabel = record.discountLabel || discountLabel(record.discount);
+      (record.cardItems || []).forEach((item) => {
+        applyCardDelta(state, item.cardTypeId, item.cardName, Number(item.initialTimes || 0));
+      });
     }
 
     if (record.type === "member_recharge") {

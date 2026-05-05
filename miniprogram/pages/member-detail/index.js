@@ -13,16 +13,13 @@ function formatOfflineTrace(item) {
 }
 
 function normalizeRecord(item) {
-  const initialLine = item.type === "member_initial_balance"
-    ? (formatOfflineTrace(item) || item.remark || item.discountLabel || "")
-    : "";
   return {
     ...item,
     typeText: fmt.formatRecordType(item.type),
     statusText: item.status === "void" ? "已作废" : "有效",
     timeText: fmt.formatDateTime(item.occurredAt || item.createdAt),
     actualReceivedYuan: fmt.centToYuan(item.actualReceivedCent),
-    nameLine: initialLine || fmt.formatRecordSummary(item) || item.cardName || item.discountLabel || ""
+    nameLine: fmt.formatRecordSummary(item) || item.cardName || item.discountLabel || ""
   };
 }
 

@@ -36,7 +36,7 @@ function formatRecordType(value) {
     member_checkout: "会员结账",
     member_consumption: "会员消费",
     member_recharge: "会员充值",
-    member_initial_balance: "初始余额",
+    member_initial_balance: "老会员补录",
     card_purchase: "次卡购买",
   };
   return map[value] || value || "-";
@@ -85,8 +85,22 @@ function formatCardPurchaseSummary(record) {
   return "";
 }
 
+function formatMemberInitialBalanceSummary(record) {
+  const parts = [];
+  const amountCent = Number(record && record.amountCent || 0);
+  const discount = record && record.discount;
+  const cardItems = record && Array.isArray(record.cardItems) ? record.cardItems : [];
+
+  if (amountCent > 0) parts.push(`余额 ¥${centToYuan(amountCent)}`);
+  if (discount) parts.push(record.discountLabel || formatDiscount(discount));
+  if (cardItems.length > 0) parts.push(`次卡 ${cardItems.length}种`);
+
+  return parts.length > 0 ? `老会员补录：${parts.join(" / ")}` : "老会员补录";
+}
+
 function formatRecordSummary(record) {
   if (record && record.type === "member_recharge") return `充值后折扣：${record.discountLabel || formatDiscount(record.discount)}`;
+  if (record && record.type === "member_initial_balance") return formatMemberInitialBalanceSummary(record);
   if (record && record.type === "card_purchase") return formatCardPurchaseSummary(record);
   if (record && record.type === "member_checkout") return formatCheckoutSummary(record);
   return formatServiceSummary(record);
@@ -111,6 +125,7 @@ module.exports = {
   formatServiceSummary,
   formatCheckoutSummary,
   formatCardPurchaseSummary,
+  formatMemberInitialBalanceSummary,
   formatRecordSummary,
   formatDateTime
 };

@@ -55,15 +55,25 @@ function normalizeDiscountText(value) {
   return String(Math.round(num * 100) / 100);
 }
 
+function normalizeInitialCardType(item) {
+  return {
+    ...item,
+    selected: false,
+    initialTimes: ""
+  };
+}
+
 guardedPage({
   data: {
     id: "",
     redirect: "",
     saving: false,
+    loadingCards: false,
     monthOptions: MONTH_OPTIONS,
     dayOptions: [],
     discountOptions: DISCOUNT_OPTIONS,
     bookOptions: BOOK_OPTIONS,
+    initialCardTypes: [],
     importExpanded: false,
     form: emptyForm(),
     importForm: emptyImportForm()
@@ -74,7 +84,24 @@ guardedPage({
     if (query.id) {
       this.setData({ id: query.id });
       this.loadMember(query.id);
+    } else {
+      this.loadInitialCardTypes();
     }
+  },
+
+  loadInitialCardTypes() {
+    this.setData({ loadingCards: true });
+    api.callBusiness("listCardTypes", { onlyEnabled: true })
+      .then((cardTypes) => {
+        this.setData({
+          loadingCards: false,
+          initialCardTypes: (cardTypes || []).map(normalizeInitialCardType)
+        });
+      })
+      .catch((err) => {
+        this.setData({ loadingCards: false });
+        api.showError(err);
+      });
   },
 
   loadMember(id) {
@@ -149,6 +176,30 @@ guardedPage({
     });
   },
 
+  noop() {},
+
+  toggleImportCard(e) {
+    const id = String(e.currentTarget.dataset.id || "");
+    const initialCardTypes = this.data.initialCardTypes.map((item) => {
+      if (item._id !== id) return item;
+      const selected = !item.selected;
+      return {
+        ...item,
+        selected,
+        initialTimes: selected ? item.initialTimes : ""
+      };
+    });
+    this.setData({ initialCardTypes });
+  },
+
+  onImportCardTimesInput(e) {
+    const id = String(e.currentTarget.dataset.id || "");
+    const initialCardTypes = this.data.initialCardTypes.map((item) => (
+      item._id === id ? { ...item, initialTimes: e.detail.value } : item
+    ));
+    this.setData({ initialCardTypes });
+  },
+
   validateBasic() {
     if (!normalizeText(this.data.form.name)) {
       api.showError(new Error("会员姓名不能为空"));
@@ -209,7 +260,26 @@ guardedPage({
       }
     }
 
-    const importActive = balanceCent > 0 || !!discount || (!!offlineBook && !!offlinePage);
+    const selectedCards = this.data.initialCardTypes.filter((item) => item.selected);
+    const cardItems = [];
+    for (const card of selectedCards) {
+      const timesText = normalizeText(card.initialTimes);
+      if (!timesText) {
+        api.showError(new Error("请填写已选次卡的剩余次数"));
+        return null;
+      }
+      if (!/^[1-9]\d*$/.test(timesText)) {
+        api.showError(new Error("剩余次数必须是正整数"));
+        return null;
+      }
+      cardItems.push({
+        cardTypeId: card._id,
+        cardName: card.name,
+        initialTimes: Number(timesText)
+      });
+    }
+
+    const importActive = balanceCent > 0 || !!discount || (!!offlineBook && !!offlinePage) || cardItems.length > 0;
     return {
       importActive,
       initialBalanceYuan: balanceText,
@@ -218,7 +288,11 @@ guardedPage({
       discountText: discount ? `${discount}折` : "无折扣",
       offlineBook,
       offlinePage,
-      traceText: offlineBook && offlinePage ? `${offlineBook} 第${offlinePage}页` : "未填写"
+      traceText: offlineBook && offlinePage ? `${offlineBook} 第${offlinePage}页` : "未填写",
+      cardItems,
+      cardText: cardItems.length > 0
+        ? cardItems.map((item) => `${item.cardName}：${item.initialTimes} 次`).join("\n")
+        : "未选择"
     };
   },
 
@@ -237,7 +311,8 @@ guardedPage({
           `初始余额：¥${importInfo.initialBalanceText}`,
           `初始折扣：${importInfo.discountText}`,
           `来源：${importInfo.traceText}`,
-          "初始余额和初始折扣保存后前台不可修改。"
+          `初始次卡：${importInfo.cardText}`,
+          "初始余额、初始折扣和初始次卡保存后前台不可修改。"
         ].join("\n"),
         confirmText: "确认保存",
         success: (res) => {
@@ -262,7 +337,11 @@ guardedPage({
         initialBalanceYuan: importInfo.initialBalanceYuan,
         discount: importInfo.discount,
         offlineBook: importInfo.offlineBook,
-        offlinePage: importInfo.offlinePage
+        offlinePage: importInfo.offlinePage,
+        cardItems: importInfo.cardItems.map((item) => ({
+          cardTypeId: item.cardTypeId,
+          initialTimes: item.initialTimes
+        }))
       };
     }
 

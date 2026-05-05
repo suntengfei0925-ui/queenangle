@@ -92,6 +92,14 @@ function normalizeCardItems(record) {
     }));
   }
 
+  if (record.type === "member_initial_balance") {
+    return items.map((item, index) => ({
+      ...item,
+      key: `${item.cardTypeId || "card"}-${index}`,
+      initialTimes: Number(item.initialTimes || 0)
+    }));
+  }
+
   return items.map((item, index) => ({
     ...item,
     key: `${item.cardTypeId || "card"}-${index}`,

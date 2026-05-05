@@ -1,10 +1,10 @@
 .signature-page {
   display: grid;
-  grid-template-rows: 76rpx minmax(0, 1fr) 88rpx;
-  gap: 18rpx;
+  grid-template-rows: 40rpx minmax(0, 1fr) 56rpx;
+  gap: 8rpx;
   height: 100vh;
   box-sizing: border-box;
-  padding: 20rpx 28rpx;
+  padding: 8rpx 18rpx;
   background: #f6f7f9;
 }
 
@@ -13,8 +13,9 @@
   align-items: center;
   justify-content: center;
   color: #111827;
-  font-size: 34rpx;
+  font-size: 24rpx;
   font-weight: 700;
+  line-height: 40rpx;
 }
 
 .signature-canvas {
@@ -29,5 +30,14 @@
 .signature-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18rpx;
+  gap: 12rpx;
+}
+
+.signature-actions button {
+  min-height: 56rpx;
+  line-height: 56rpx;
+  margin: 0;
+  padding: 0;
+  border-radius: 8rpx;
+  font-size: 24rpx;
 }
