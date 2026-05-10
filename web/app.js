@@ -4,6 +4,7 @@ const state = {
   summaryExpanded: false,
   loading: false,
   toastTimer: null,
+  isOnline: typeof navigator === "undefined" ? true : navigator.onLine,
   memberKeyword: "",
   members: [],
   selectedMemberId: "",
@@ -123,9 +124,29 @@ const titles = {
 const settingsConfigViews = ["service-categories", "services", "recharge-tiers", "card-types"];
 const monthOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 const daysPerMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const OFFLINE_MESSAGE = "网络不可用，请连接网络后重试";
+const mutatingBusinessActions = new Set([
+  "saveWhitelistPerson",
+  "saveMember",
+  "saveServiceCategory",
+  "toggleServiceCategory",
+  "saveService",
+  "toggleService",
+  "saveRechargeTier",
+  "saveCardType",
+  "toggleCardType",
+  "createGuestConsumption",
+  "createMemberCheckout",
+  "createMemberRecharge",
+  "createMemberConsumption",
+  "createCardPurchase",
+  "voidRecord",
+  "editRecord"
+]);
 
 const el = {
   toast: document.querySelector("#toast"),
+  offlineBanner: document.querySelector("#offline-banner"),
   loginScreen: document.querySelector("#login-screen"),
   appScreen: document.querySelector("#app-screen"),
   loginForm: document.querySelector("#login-form"),
@@ -309,7 +330,10 @@ const el = {
   signatureSheet: document.querySelector("#signature-sheet"),
   signatureCanvas: document.querySelector("#signature-canvas"),
   signatureClear: document.querySelector("#signature-clear"),
-  signatureConfirm: document.querySelector("#signature-confirm")
+  signatureConfirm: document.querySelector("#signature-confirm"),
+  qrViewer: document.querySelector("#qr-viewer"),
+  qrViewerClose: document.querySelector("#qr-viewer-close"),
+  qrViewerImage: document.querySelector("#qr-viewer-image")
 };
 
 function centToYuan(value) {
@@ -327,6 +351,44 @@ function yuanInputToCent(value) {
 
 function money(value) {
   return `¥${centToYuan(value)}`;
+}
+
+function openQrViewer(image) {
+  if (!image || image.hidden || !image.src) return;
+  el.qrViewerImage.src = image.src;
+  el.qrViewer.hidden = false;
+  const requestFullscreen = el.qrViewer.requestFullscreen || el.qrViewer.webkitRequestFullscreen;
+  if (!requestFullscreen) return;
+  const result = requestFullscreen.call(el.qrViewer);
+  if (result && typeof result.catch === "function") result.catch(() => {});
+}
+
+function closeQrViewer() {
+  const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+  const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+  if (fullscreenElement === el.qrViewer && exitFullscreen) {
+    const result = exitFullscreen.call(document);
+    if (result && typeof result.catch === "function") result.catch(() => {});
+  }
+  el.qrViewer.hidden = true;
+  el.qrViewerImage.removeAttribute("src");
+}
+
+function handleQrFullscreenChange() {
+  const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+  if (!fullscreenElement && !el.qrViewer.hidden) closeQrViewer();
+}
+
+function bindQrViewer(image) {
+  if (!image) return;
+  image.tabIndex = 0;
+  image.setAttribute("role", "button");
+  image.addEventListener("click", () => openQrViewer(image));
+  image.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    openQrViewer(image);
+  });
 }
 
 function formatPayment(value) {
@@ -710,6 +772,26 @@ function showToast(message) {
   }, 1800);
 }
 
+function createOfflineError() {
+  const err = new Error(OFFLINE_MESSAGE);
+  err.code = "NETWORK_OFFLINE";
+  return err;
+}
+
+function updateNetworkStatus() {
+  state.isOnline = typeof navigator === "undefined" ? true : navigator.onLine;
+  if (el.offlineBanner) el.offlineBanner.hidden = state.isOnline;
+  document.documentElement.classList.toggle("is-offline", !state.isOnline);
+  if (!state.isOnline) showToast(OFFLINE_MESSAGE);
+}
+
+function ensureOnlineForSave() {
+  updateNetworkStatus();
+  if (state.isOnline) return true;
+  showToast(OFFLINE_MESSAGE);
+  return false;
+}
+
 function setLoading(value) {
   state.loading = value;
   el.refreshButton.disabled = value;
@@ -717,14 +799,24 @@ function setLoading(value) {
 }
 
 async function requestJson(url, options = {}) {
+  if (!state.isOnline && String(url).startsWith("/api/")) {
+    throw createOfflineError();
+  }
   const headers = options.body instanceof FormData
     ? options.headers || {}
     : { "Content-Type": "application/json", ...(options.headers || {}) };
-  const res = await fetch(url, {
-    credentials: "include",
-    headers,
-    ...options
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      credentials: "include",
+      headers,
+      ...options
+    });
+  } catch (err) {
+    updateNetworkStatus();
+    if (!state.isOnline) throw createOfflineError();
+    throw err;
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.ok === false) {
     if (res.status === 401) {
@@ -740,10 +832,32 @@ async function requestJson(url, options = {}) {
 }
 
 function callBusiness(action, payload = {}) {
+  if (mutatingBusinessActions.has(action) && !ensureOnlineForSave()) {
+    return Promise.reject(createOfflineError());
+  }
   return requestJson("/api/business", {
     method: "POST",
     body: JSON.stringify({ action, ...payload })
   });
+}
+
+function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("/sw.js").then((registration) => {
+    if (registration.waiting) {
+      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+    }
+    registration.addEventListener("updatefound", () => {
+      const worker = registration.installing;
+      if (!worker) return;
+      worker.addEventListener("statechange", () => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          worker.postMessage({ type: "SKIP_WAITING" });
+        }
+      });
+    });
+    registration.update().catch(() => {});
+  }).catch(() => {});
 }
 
 function showLogin() {
@@ -1729,7 +1843,7 @@ function renderBirthdayControls() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = `choice-chip${state.editForm.birthdayDay === day ? " active" : ""}`;
-    button.textContent = `${day}日`;
+    button.textContent = day;
     button.addEventListener("click", () => {
       state.editForm.birthdayDay = state.editForm.birthdayDay === day ? "" : day;
       renderBirthdayControls();
@@ -3297,6 +3411,17 @@ el.signatureSheet.addEventListener("click", (event) => {
   if (event.target === el.signatureSheet) el.signatureSheet.hidden = true;
 });
 
+[el.paymentQr, el.rechargePaymentQr, el.checkoutPaymentQr].forEach(bindQrViewer);
+el.qrViewerClose.addEventListener("click", closeQrViewer);
+el.qrViewer.addEventListener("click", (event) => {
+  if (event.target === el.qrViewer) closeQrViewer();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !el.qrViewer.hidden) closeQrViewer();
+});
+document.addEventListener("fullscreenchange", handleQrFullscreenChange);
+document.addEventListener("webkitfullscreenchange", handleQrFullscreenChange);
+
 document.querySelectorAll("[data-route]").forEach((button) => {
   button.addEventListener("click", () => {
     const route = button.dataset.route;
@@ -3315,6 +3440,11 @@ document.querySelectorAll("[data-route]").forEach((button) => {
     showToast(button.textContent.trim().split(/\s+/)[0]);
   });
 });
+
+window.addEventListener("online", updateNetworkStatus);
+window.addEventListener("offline", updateNetworkStatus);
+updateNetworkStatus();
+registerServiceWorker();
 
 loadMe().catch(() => {
   showLogin();

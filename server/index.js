@@ -24,6 +24,13 @@ function securityHeaders(req, res, next) {
   next();
 }
 
+function staticHeaders(res, filePath) {
+  const fileName = path.basename(filePath);
+  if (["index.html", "app.js", "styles.css", "manifest.webmanifest", "sw.js"].includes(fileName)) {
+    res.setHeader("Cache-Control", "no-cache");
+  }
+}
+
 function createLoginLimiter() {
   const attempts = new Map();
   const windowMs = 60 * 1000;
@@ -126,7 +133,7 @@ async function main() {
   app.post("/api/files/signatures", requireUser, files.upload.single("file"), files.uploadSignature);
   app.get("/api/files/:id", requireUser, files.sendFile);
 
-  app.use(express.static(webDir, { extensions: ["html"] }));
+  app.use(express.static(webDir, { extensions: ["html"], setHeaders: staticHeaders }));
   app.get("*", (req, res) => {
     res.sendFile(path.join(webDir, "index.html"));
   });

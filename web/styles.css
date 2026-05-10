@@ -481,6 +481,45 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
+  cursor: zoom-in;
+  touch-action: manipulation;
+}
+
+.qr-viewer-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 170;
+  display: grid;
+  place-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(17, 24, 39, 0.9);
+}
+
+.qr-viewer-mask[hidden] {
+  display: none;
+}
+
+.qr-viewer-image {
+  width: min(92vmin, calc(100vw - 32px));
+  height: min(92vmin, calc(100vh - 96px));
+  object-fit: contain;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.qr-viewer-close {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--ink);
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 600;
 }
 
 .member-list {
@@ -1003,7 +1042,10 @@ textarea {
 }
 
 .day-scroll {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(40px, 1fr);
+  grid-template-rows: repeat(3, 34px);
   gap: 6px;
   overflow-x: auto;
   padding-bottom: 2px;
@@ -1023,6 +1065,12 @@ textarea {
 
 .month-grid .choice-chip {
   min-width: 0;
+  padding: 0 4px;
+}
+
+.day-scroll .choice-chip {
+  min-width: 0;
+  width: 100%;
   padding: 0 4px;
 }
 
@@ -1242,6 +1290,23 @@ textarea {
   padding: 10px 14px;
   text-align: center;
   font-size: 13px;
+}
+
+.offline-banner {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 180;
+  width: min(calc(100% - 24px), 536px);
+  transform: translateX(-50%);
+  border: 1px solid var(--danger-line);
+  border-radius: 8px;
+  background: #fef2f2;
+  color: var(--danger);
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 [hidden] {

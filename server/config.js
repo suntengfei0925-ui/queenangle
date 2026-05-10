@@ -1,6 +1,8 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
+const DEFAULT_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 90;
+
 function readDotEnv(filePath) {
   if (!fs.existsSync(filePath)) return {};
   const env = {};
@@ -68,7 +70,7 @@ function loadConfig() {
     dbPath: resolvePath(rootDir, env.DB_PATH || "./data/queenangle.sqlite"),
     uploadDir: resolvePath(rootDir, env.UPLOAD_DIR || "./uploads"),
     cookieSecure: boolValue(env.COOKIE_SECURE, isProduction),
-    sessionTtlMs: Number(env.SESSION_TTL_MS || 1000 * 60 * 60 * 24 * 14),
+    sessionTtlMs: Number(env.SESSION_TTL_MS || DEFAULT_SESSION_TTL_MS),
     initialUsers
   };
 }

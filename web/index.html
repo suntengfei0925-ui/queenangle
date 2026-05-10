@@ -3,11 +3,20 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <title>美甲店记账</title>
+    <title>QueenAngle</title>
+    <meta name="application-name" content="QueenAngle">
+    <meta name="apple-mobile-web-app-title" content="QueenAngle">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#111827">
+    <link rel="manifest" href="/manifest.webmanifest">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
     <div id="toast" class="toast" hidden></div>
+    <div id="offline-banner" class="offline-banner" role="status" hidden>网络不可用，请连接网络后重试</div>
 
     <main id="login-screen" class="login-page" hidden>
       <section class="login-panel">
@@ -689,6 +698,11 @@
         <button class="tab" type="button" data-view-target="settings">设置</button>
       </nav>
     </main>
+
+    <div id="qr-viewer" class="qr-viewer-mask" hidden>
+      <button id="qr-viewer-close" class="qr-viewer-close" type="button" aria-label="Close payment QR">&times;</button>
+      <img id="qr-viewer-image" class="qr-viewer-image" alt="Payment QR">
+    </div>
 
     <script src="/app.js"></script>
   </body>
