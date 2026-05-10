@@ -1,0 +1,20 @@
+{
+  "name": "queenangle-independent-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QueenAngle independent web server and mobile web client.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^11.9.1",
+    "express": "^4.21.2",
+    "multer": "^2.0.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

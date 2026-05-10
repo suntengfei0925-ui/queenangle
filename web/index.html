@@ -1,0 +1,695 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>美甲店记账</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div id="toast" class="toast" hidden></div>
+
+    <main id="login-screen" class="login-page" hidden>
+      <section class="login-panel">
+        <div class="login-brand">
+          <div class="brand-mark">QA</div>
+          <h1>美甲店记账</h1>
+        </div>
+
+        <form id="login-form" class="form">
+          <label class="field">
+            <span class="label">账号</span>
+            <input id="username" name="username" autocomplete="username" required>
+          </label>
+          <label class="field">
+            <span class="label">密码</span>
+            <input id="password" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button class="primary full-button" type="submit">登录</button>
+          <p id="login-error" class="form-error" role="alert"></p>
+        </form>
+      </section>
+    </main>
+
+    <main id="app-screen" class="app-page" hidden>
+      <header class="app-header">
+        <div class="header-main">
+          <button id="back-button" class="secondary back-button" type="button" hidden>返回</button>
+          <div>
+            <h1 id="page-title">记一笔</h1>
+            <p id="page-subtitle"></p>
+          </div>
+        </div>
+        <button id="refresh-button" class="secondary mini-button" type="button">刷新</button>
+      </header>
+
+      <section id="view-entry" class="view page-stack" data-view="entry">
+        <button class="entry-card member-card" type="button" data-route="members">
+          <span>
+            <strong>会员</strong>
+            <em>消费结账 / 充值 / 次卡</em>
+          </span>
+          <b>进入</b>
+        </button>
+
+        <button class="entry-card guest-card" type="button" data-route="guest">
+          <span>
+            <strong>散客结账</strong>
+            <em>不绑定会员</em>
+          </span>
+          <b>进入</b>
+        </button>
+      </section>
+
+      <section id="view-guest" class="view page-stack" data-view="guest" hidden>
+        <form id="guest-form" class="panel form">
+          <button id="service-person-button" class="service-person-row" type="button">
+            <span class="label">服务人</span>
+            <span class="service-person-value">
+              <strong id="selected-service-person">加载中</strong>
+              <span class="service-person-arrow">&gt;</span>
+            </span>
+          </button>
+
+          <section class="field">
+            <span class="label">消费项目</span>
+            <div id="guest-config-error" class="empty compact-empty" hidden></div>
+            <div id="service-picker" class="service-picker">
+              <div id="category-list" class="category-list"></div>
+              <div id="service-list" class="service-list"></div>
+            </div>
+          </section>
+
+          <section class="field">
+            <span class="label">已选项目</span>
+            <div id="selected-empty" class="empty compact-empty">请选择服务项目</div>
+            <div id="selected-service-list" class="selected-list"></div>
+          </section>
+
+          <div class="row total-row">
+            <span class="muted">整单原价</span>
+            <strong id="guest-total" class="money title">¥0.00</strong>
+          </div>
+
+          <label class="field">
+            <span class="label">实际收款金额</span>
+            <input id="guest-actual" placeholder="单位：元" inputmode="decimal">
+          </label>
+
+          <section class="field">
+            <span class="label">支付方式</span>
+            <div id="payment-methods" class="select-list">
+              <button class="select-option" type="button" data-payment="wechat">微信</button>
+              <button class="select-option" type="button" data-payment="alipay">支付宝</button>
+              <button class="select-option" type="button" data-payment="cash">现金</button>
+            </div>
+            <img id="payment-qr" class="payment-qr-code" alt="收款码" hidden>
+          </section>
+
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="guest-remark" placeholder="可选" autocomplete="off">
+          </label>
+
+          <button id="guest-submit" class="primary full-button" type="submit">保存记录</button>
+        </form>
+
+        <div id="service-person-sheet" class="sheet-mask" hidden>
+          <section class="sheet">
+            <h2>选择服务人</h2>
+            <div id="service-person-list" class="sheet-list"></div>
+            <button id="close-service-person" class="secondary full-button" type="button">取消</button>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-home" class="view page-stack" data-view="home" hidden>
+        <article class="panel stack">
+          <div class="row">
+            <div>
+              <h2 class="title">今日流水</h2>
+              <p id="business-date" class="muted">-</p>
+            </div>
+            <button id="summary-toggle" class="secondary mini-button" type="button">展开</button>
+          </div>
+
+          <div id="summary-body" class="summary-body" hidden>
+            <div class="summary-top">
+              <div>
+                <p class="muted">今日实收</p>
+                <strong id="summary-actual" class="money large-money">¥0.00</strong>
+              </div>
+              <div>
+                <p class="muted">有效笔数</p>
+                <strong id="summary-active-count" class="money large-money">0</strong>
+              </div>
+            </div>
+
+            <div class="metric-grid">
+              <div>
+                <p class="muted">消费金额</p>
+                <strong id="summary-consumption" class="money">¥0.00</strong>
+              </div>
+              <div>
+                <p class="muted">余额支付</p>
+                <strong id="summary-balance" class="money">¥0.00</strong>
+              </div>
+              <div>
+                <p class="muted">充值</p>
+                <strong id="summary-recharge" class="money">¥0.00</strong>
+              </div>
+              <div>
+                <p class="muted">购卡</p>
+                <strong id="summary-card" class="money">¥0.00</strong>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <section class="section">
+          <h2 class="sub-title">今日记录</h2>
+          <div id="records-empty" class="empty">今天还没有记录</div>
+          <div id="record-list" class="list"></div>
+        </section>
+      </section>
+
+      <section id="view-settings" class="view page-stack" data-view="settings" hidden>
+        <article class="panel account-panel">
+          <div>
+            <p class="muted">当前账号</p>
+            <strong id="current-user">-</strong>
+          </div>
+          <button id="logout-button" class="secondary mini-button" type="button">退出</button>
+        </article>
+
+        <div class="list">
+          <button class="list-button" type="button" data-route="service-categories">服务分类</button>
+          <button class="list-button" type="button" data-route="services">服务项目</button>
+          <button class="list-button" type="button" data-route="recharge-tiers">充值档位</button>
+          <button class="list-button" type="button" data-route="card-types">次卡类型</button>
+        </div>
+      </section>
+
+      <section id="view-service-categories" class="view page-stack" data-view="service-categories" hidden>
+        <form id="category-form" class="panel form">
+          <h2 id="category-form-title" class="sub-title">新增服务分类</h2>
+          <label class="field">
+            <span class="label">分类名称</span>
+            <input id="category-name" placeholder="例如 美甲" autocomplete="off">
+          </label>
+          <div class="button-row">
+            <button class="primary" type="submit">保存</button>
+            <button id="category-reset" class="secondary" type="button">清空</button>
+          </div>
+        </form>
+
+        <div id="settings-category-empty" class="empty">暂无服务分类</div>
+        <div id="settings-category-list" class="list"></div>
+      </section>
+
+      <section id="view-services" class="view page-stack" data-view="services" hidden>
+        <form id="service-form" class="panel form" hidden>
+          <h2 id="service-form-title" class="sub-title">新增服务项目</h2>
+          <div class="field">
+            <span class="label">所属分类</span>
+            <strong id="service-category-readonly" class="readonly-value">-</strong>
+          </div>
+          <label class="field">
+            <span class="label">项目名称</span>
+            <input id="service-name" placeholder="例如 纯色" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="service-remark" placeholder="可选" autocomplete="off">
+          </label>
+          <div class="button-row">
+            <button class="primary" type="submit">保存</button>
+            <button id="service-back-list" class="secondary" type="button">返回</button>
+          </div>
+        </form>
+
+        <div id="service-groups" class="page-stack"></div>
+      </section>
+
+      <section id="view-recharge-tiers" class="view page-stack" data-view="recharge-tiers" hidden>
+        <form id="tier-form" class="panel form" hidden>
+          <h2 id="tier-form-title" class="sub-title">新增充值档位</h2>
+          <label class="field">
+            <span class="label">充值金额</span>
+            <input id="tier-amount" placeholder="单位：元" inputmode="decimal" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="label">折扣</span>
+            <input id="tier-discount" placeholder="例如 9.5" inputmode="decimal" autocomplete="off">
+          </label>
+          <div class="button-row">
+            <button class="primary" type="submit">保存</button>
+            <button id="tier-back-list" class="secondary" type="button">返回</button>
+          </div>
+        </form>
+
+        <div id="tier-empty" class="empty">暂无充值档位</div>
+        <div id="tier-list" class="list"></div>
+        <div id="tier-fixed-action" class="fixed-action">
+          <button id="tier-add" class="secondary fixed-button" type="button">新增充值档位</button>
+        </div>
+      </section>
+
+      <section id="view-card-types" class="view page-stack" data-view="card-types" hidden>
+        <form id="card-type-form" class="panel form" hidden>
+          <h2 id="card-type-form-title" class="sub-title">新增次卡</h2>
+          <label class="field">
+            <span class="label">次卡名称</span>
+            <input id="card-type-name" placeholder="例如 手部护理 10 次卡" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="label">默认次数</span>
+            <input id="card-type-times" placeholder="例如 10" inputmode="numeric" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="label">参考价格</span>
+            <input id="card-type-price" placeholder="单位：元" inputmode="decimal" autocomplete="off">
+          </label>
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="card-type-remark" placeholder="可选" autocomplete="off">
+          </label>
+          <div class="button-row">
+            <button class="primary" type="submit">保存</button>
+            <button id="card-type-back-list" class="secondary" type="button">返回</button>
+          </div>
+        </form>
+
+        <div id="card-type-empty" class="empty">暂无次卡类型</div>
+        <div id="card-type-list" class="list"></div>
+        <div id="card-type-fixed-action" class="fixed-action">
+          <button id="card-type-add" class="secondary fixed-button" type="button">新增次卡</button>
+        </div>
+      </section>
+
+      <section id="view-members" class="view page-stack" data-view="members" hidden>
+        <article class="panel stack">
+          <h2 class="title">选择会员</h2>
+          <input id="member-keyword" placeholder="按姓名、手机号或后四位搜索" autocomplete="off">
+        </article>
+
+        <div id="members-empty" class="empty">暂无会员</div>
+        <div id="member-list" class="list member-list"></div>
+
+        <div class="fixed-action">
+          <button id="add-member-button" class="secondary fixed-button" type="button">新建会员</button>
+        </div>
+      </section>
+
+      <section id="view-member-detail" class="view page-stack" data-view="member-detail" hidden>
+        <article class="panel stack">
+          <div class="row">
+            <div>
+              <h2 id="member-name" class="title">-</h2>
+              <p id="member-phone" class="muted">-</p>
+            </div>
+            <button id="edit-member-button" class="secondary mini-button" type="button">编辑</button>
+          </div>
+
+          <div class="row member-balance-row">
+            <div>
+              <p class="muted">当前余额</p>
+              <strong id="member-balance" class="money large-money">¥0.00</strong>
+            </div>
+            <div>
+              <p class="muted">当前折扣</p>
+              <span id="member-discount" class="tag">无折扣</span>
+            </div>
+          </div>
+
+          <p id="member-remark" class="muted" hidden></p>
+
+          <div id="member-meta" class="member-meta" hidden>
+            <div id="member-birthday-box" hidden>
+              <p class="muted">生日</p>
+              <strong id="member-birthday"></strong>
+            </div>
+            <div id="member-offline-box" hidden>
+              <p class="muted">线下位置</p>
+              <strong id="member-offline"></strong>
+            </div>
+          </div>
+
+          <div class="card-summary">
+            <h3 class="sub-title">次卡明细</h3>
+            <p id="cards-empty" class="muted">暂无次卡</p>
+            <div id="card-list" class="card-list"></div>
+          </div>
+        </article>
+
+        <section class="action-grid">
+          <button id="member-checkout-button" class="action-card primary-action" type="button">
+            <span>
+              <strong>会员结账</strong>
+              <em>普通项目、次卡和余额支付</em>
+            </span>
+            <b>进入</b>
+          </button>
+          <button id="member-recharge-button" class="action-card" type="button">
+            <span>
+              <strong>购卡/充值</strong>
+              <em>购买次卡或充值余额</em>
+            </span>
+            <b>进入</b>
+          </button>
+        </section>
+
+        <section class="section">
+          <h2 class="sub-title">历史记录</h2>
+          <div id="member-records-empty" class="empty">暂无记录</div>
+          <div id="member-record-list" class="list"></div>
+        </section>
+      </section>
+
+      <section id="view-member-recharge" class="view page-stack" data-view="member-recharge" hidden>
+        <article class="panel member-summary">
+          <div>
+            <p class="label">已选会员</p>
+            <h2 id="recharge-member-name" class="sub-title">-</h2>
+            <p id="recharge-member-phone" class="muted">-</p>
+          </div>
+          <div class="recharge-summary-grid">
+            <div>
+              <p class="muted">当前余额</p>
+              <strong id="recharge-member-balance" class="money">¥0.00</strong>
+            </div>
+            <div>
+              <p class="muted">当前折扣</p>
+              <strong id="recharge-member-discount">无折扣</strong>
+            </div>
+            <div>
+              <p class="muted">次卡</p>
+              <strong id="recharge-member-card-total">0 次</strong>
+            </div>
+          </div>
+        </article>
+
+        <form id="recharge-form" class="panel form">
+          <div id="recharge-config-error" class="empty compact-empty" hidden></div>
+
+          <section class="field">
+            <span class="label">充值档位</span>
+            <div id="recharge-tier-list" class="select-list"></div>
+          </section>
+
+          <section class="field">
+            <span class="label">次卡充值</span>
+            <div id="recharge-card-empty" class="empty compact-empty" hidden>暂无可购买次卡</div>
+            <div id="recharge-card-list" class="select-list"></div>
+          </section>
+
+          <section class="field">
+            <span class="label">支付方式</span>
+            <div id="recharge-payment-methods" class="select-list">
+              <button class="select-option" type="button" data-recharge-payment="wechat">微信</button>
+              <button class="select-option" type="button" data-recharge-payment="alipay">支付宝</button>
+              <button class="select-option" type="button" data-recharge-payment="cash">现金</button>
+            </div>
+            <img id="recharge-payment-qr" class="payment-qr-code" alt="收款码" hidden>
+          </section>
+
+          <section id="recharge-tier-summary" class="tier-summary" hidden>
+            <h3 class="sub-title">本次汇总</h3>
+            <div class="row">
+              <span class="muted">余额增加</span>
+              <strong id="recharge-summary-amount" class="money">¥0.00</strong>
+            </div>
+            <div class="row">
+              <span class="muted">充值后折扣</span>
+              <strong id="recharge-summary-discount">无折扣</strong>
+            </div>
+            <div class="row">
+              <span class="muted">实收金额</span>
+              <strong id="recharge-summary-received" class="money">¥0.00</strong>
+            </div>
+          </section>
+
+          <section id="recharge-card-summary" class="tier-summary" hidden>
+            <h3 class="sub-title">本次汇总</h3>
+            <div id="recharge-card-summary-list" class="summary-list"></div>
+            <div class="row">
+              <span class="muted">合计次数</span>
+              <strong id="recharge-card-total-times">0 次</strong>
+            </div>
+            <div class="row">
+              <span class="muted">实收金额</span>
+              <strong id="recharge-card-total-amount" class="money">¥0.00</strong>
+            </div>
+          </section>
+
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="recharge-remark" placeholder="可选" autocomplete="off">
+          </label>
+
+          <button id="recharge-submit" class="primary full-button" type="submit">完成充值</button>
+        </form>
+      </section>
+
+      <section id="view-member-checkout" class="view page-stack" data-view="member-checkout" hidden>
+        <article class="panel member-summary">
+          <div>
+            <p class="label">已选会员</p>
+            <h2 id="checkout-member-name" class="sub-title">-</h2>
+            <p id="checkout-member-phone" class="muted">-</p>
+          </div>
+          <div class="recharge-summary-grid">
+            <div>
+              <p class="muted">当前余额</p>
+              <strong id="checkout-member-balance" class="money">¥0.00</strong>
+            </div>
+            <div>
+              <p class="muted">当前折扣</p>
+              <strong id="checkout-member-discount">无折扣</strong>
+            </div>
+            <div>
+              <p class="muted">次卡</p>
+              <strong id="checkout-member-card-total">0 次</strong>
+            </div>
+          </div>
+        </article>
+
+        <form id="checkout-form" class="panel form">
+          <button id="checkout-service-person-button" class="service-person-row" type="button">
+            <span class="label">服务人</span>
+            <span class="service-person-value">
+              <strong id="checkout-selected-service-person">加载中</strong>
+              <span class="service-person-arrow">&gt;</span>
+            </span>
+          </button>
+
+          <section id="checkout-card-section" class="field" hidden>
+            <span class="label">可用次卡</span>
+            <div id="checkout-card-options" class="select-list"></div>
+          </section>
+
+          <section class="field">
+            <span class="label">消费项目</span>
+            <div id="checkout-config-error" class="empty compact-empty" hidden></div>
+            <div id="checkout-service-picker" class="service-picker">
+              <div id="checkout-category-list" class="category-list"></div>
+              <div id="checkout-service-list" class="service-list"></div>
+            </div>
+          </section>
+
+          <section class="field">
+            <span class="label">已选内容</span>
+            <div id="checkout-selected-empty" class="empty compact-empty">请选择次卡或服务项目</div>
+            <div id="checkout-selected-list" class="selected-list"></div>
+          </section>
+
+          <section id="checkout-calc-panel" class="tier-summary" hidden>
+            <div class="row">
+              <span class="muted">整单原价</span>
+              <strong id="checkout-original" class="money">¥0.00</strong>
+            </div>
+            <div class="row">
+              <span class="muted">整单会员价</span>
+              <strong id="checkout-payable" class="money">¥0.00</strong>
+            </div>
+            <div class="row">
+              <span class="muted">余额支付</span>
+              <strong id="checkout-balance-pay" class="money">¥0.00</strong>
+            </div>
+            <div id="checkout-shortage-note" class="shortage-note" hidden></div>
+            <div class="row">
+              <span class="muted">补差价</span>
+              <strong id="checkout-extra-pay" class="money">¥0.00</strong>
+            </div>
+            <div class="row">
+              <span class="muted">消费后余额</span>
+              <strong id="checkout-balance-after" class="money">¥0.00</strong>
+            </div>
+          </section>
+
+          <section id="checkout-payment-section" class="field" hidden>
+            <span class="label">补差价支付方式</span>
+            <div id="checkout-payment-methods" class="select-list">
+              <button class="select-option" type="button" data-checkout-payment="wechat">微信</button>
+              <button class="select-option" type="button" data-checkout-payment="alipay">支付宝</button>
+              <button class="select-option" type="button" data-checkout-payment="cash">现金</button>
+            </div>
+            <img id="checkout-payment-qr" class="payment-qr-code" alt="收款码" hidden>
+          </section>
+
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="checkout-remark" placeholder="可选" autocomplete="off">
+          </label>
+
+          <section id="checkout-signature-preview" class="signature-preview" hidden>
+            <div class="row">
+              <div>
+                <h3 class="sub-title">客户已签字</h3>
+                <p id="checkout-signature-status" class="muted">再次点击完成结账后保存记录</p>
+              </div>
+              <button id="checkout-resign-button" class="secondary mini-button" type="button">重新签字</button>
+            </div>
+            <img id="checkout-signature-image" class="signature-thumb" alt="客户签名">
+          </section>
+
+          <button id="checkout-submit" class="primary full-button" type="submit">完成结账</button>
+        </form>
+
+        <div id="checkout-service-person-sheet" class="sheet-mask" hidden>
+          <section class="sheet">
+            <h2>选择服务人</h2>
+            <div id="checkout-service-person-list" class="sheet-list"></div>
+            <button id="checkout-close-service-person" class="secondary full-button" type="button">取消</button>
+          </section>
+        </div>
+
+        <div id="signature-sheet" class="signature-mask" hidden>
+          <section class="signature-dialog">
+            <h2>请客户签字确认</h2>
+            <canvas id="signature-canvas"></canvas>
+            <div class="signature-actions">
+              <button id="signature-clear" class="secondary" type="button">清空重签</button>
+              <button id="signature-confirm" class="primary" type="button">确认签字</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-record-detail" class="view page-stack" data-view="record-detail" hidden>
+        <article class="panel stack">
+          <div class="record-detail-head">
+            <div>
+              <h2 id="record-detail-type" class="title">-</h2>
+              <p id="record-detail-time" class="muted">-</p>
+            </div>
+            <span id="record-detail-status" class="tag">-</span>
+          </div>
+          <p id="record-detail-void-reason" class="void-reason" hidden></p>
+          <div id="record-detail-rows" class="detail-rows"></div>
+        </article>
+
+        <article id="record-detail-services-panel" class="panel stack" hidden>
+          <h3 class="sub-title">服务明细</h3>
+          <div id="record-detail-services" class="detail-list"></div>
+        </article>
+
+        <article id="record-detail-cards-panel" class="panel stack" hidden>
+          <h3 id="record-detail-cards-title" class="sub-title">次卡明细</h3>
+          <div id="record-detail-cards" class="detail-list"></div>
+        </article>
+
+        <article id="record-detail-remark-panel" class="panel stack" hidden>
+          <h3 class="sub-title">备注</h3>
+          <p id="record-detail-remark" class="muted"></p>
+        </article>
+
+        <article id="record-detail-signature-panel" class="panel stack" hidden>
+          <div class="row">
+            <div>
+              <h3 class="sub-title">客户签字</h3>
+              <p id="record-detail-signature-time" class="muted">-</p>
+            </div>
+            <button id="record-detail-open-signature" class="secondary mini-button" type="button">查看</button>
+          </div>
+          <img id="record-detail-signature" class="record-signature" alt="客户签名">
+        </article>
+
+        <button id="record-detail-void" class="danger-button full-button" type="button">作废记录</button>
+      </section>
+
+      <section id="view-member-edit" class="view page-stack" data-view="member-edit" hidden>
+        <form id="member-edit-form" class="panel form">
+          <label class="field">
+            <span class="label">姓名</span>
+            <input id="edit-name" placeholder="请输入会员姓名" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span class="label">手机号</span>
+            <input id="edit-phone" placeholder="请输入手机号" inputmode="numeric" autocomplete="tel">
+          </label>
+
+          <div class="field">
+            <span class="label">生日</span>
+            <div id="birthday-months" class="month-grid"></div>
+            <div id="birthday-days" class="day-scroll"></div>
+          </div>
+
+          <button id="import-toggle" class="secondary import-toggle" type="button">补录老会员信息</button>
+
+          <section id="import-panel" class="import-panel" hidden>
+            <label class="compact-line">
+              <span class="compact-label">金额</span>
+              <input id="import-balance" class="compact-input" placeholder="单位：元" inputmode="decimal">
+            </label>
+
+            <div class="compact-line">
+              <span class="compact-label">折扣</span>
+              <div class="compact-controls compact-scroll">
+                <button class="mini-chip active" type="button" data-discount="">无</button>
+                <button class="mini-chip" type="button" data-discount="7">7折</button>
+                <button class="mini-chip" type="button" data-discount="7.7">7.7折</button>
+                <button class="mini-chip" type="button" data-discount="8.5">8.5折</button>
+                <input id="import-discount" class="compact-input discount-input" placeholder="自定义" inputmode="decimal">
+              </div>
+            </div>
+
+            <div class="compact-line">
+              <span class="compact-label">来源</span>
+              <div class="compact-controls compact-scroll">
+                <button class="mini-chip" type="button" data-book="本子1">本子1</button>
+                <button class="mini-chip" type="button" data-book="本子2">本子2</button>
+                <button class="mini-chip" type="button" data-book="本子3">本子3</button>
+                <button class="mini-chip" type="button" data-book="本子4">本子4</button>
+                <input id="import-page" class="compact-input page-input" placeholder="页码" inputmode="numeric">
+              </div>
+            </div>
+
+            <section class="initial-card-block">
+              <h3 class="compact-label wide-label">初始次卡</h3>
+              <p id="initial-card-loading" class="muted">正在加载次卡类型</p>
+              <p id="initial-card-empty" class="muted" hidden>暂无启用次卡</p>
+              <div id="initial-card-list" class="initial-card-list"></div>
+            </section>
+          </section>
+
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="edit-remark" placeholder="可选" autocomplete="off">
+          </label>
+
+          <button id="save-member-button" class="primary full-button" type="submit">保存</button>
+        </form>
+      </section>
+
+      <nav class="tabbar" aria-label="主导航">
+        <button class="tab active" type="button" data-view-target="entry">记一笔</button>
+        <button class="tab" type="button" data-view-target="home">账本</button>
+        <button class="tab" type="button" data-view-target="settings">设置</button>
+      </nav>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+services:
+  queenangle-app:
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:20-bookworm-slim}
+    image: queenangle-app:prod
+    container_name: queenangle-app
+    env_file:
+      - ${QUEENANGLE_ENV_FILE:-/etc/queenangle.env}
+    expose:
+      - "3000"
+    volumes:
+      - /var/lib/queenangle/db:/data/db
+      - /var/lib/queenangle/uploads:/data/uploads
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: queenangle-caddy
+    env_file:
+      - ${QUEENANGLE_ENV_FILE:-/etc/queenangle.env}
+    depends_on:
+      - queenangle-app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,13 @@
+.git
+.temp
+.npm-cache
+node_modules
+miniprogram_npm
+data
+uploads
+.env
+.env.*
+!.env.example
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

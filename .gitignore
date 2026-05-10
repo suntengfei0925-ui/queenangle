@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 miniprogram_npm/
+.npm-cache/
 
 # WeChat DevTools local files
 .idea/
@@ -21,6 +22,11 @@ coverage/
 # CloudBase local env files
 .env
 .env.*
+!.env.example
+
+# Local independent-web runtime data
+data/
+uploads/
 
 # OS files
 Thumbs.db
