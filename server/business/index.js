@@ -1,10 +1,10 @@
-const { cloud } = require("../runtime");
+const { appRuntime } = require("../runtime");
 
-cloud.init({
-  env: cloud.DYNAMIC_CURRENT_ENV
+appRuntime.init({
+  env: appRuntime.DYNAMIC_CURRENT_ENV
 });
 
-const db = cloud.database();
+const db = appRuntime.database();
 
 const C = {
   WHITELIST: "owner_whitelist",
@@ -34,7 +34,7 @@ function configOutdatedError() {
 }
 
 function getOpenid() {
-  return cloud.getWXContext().OPENID;
+  return appRuntime.getUserContext().userId;
 }
 
 async function assertOwner() {
@@ -42,7 +42,7 @@ async function assertOwner() {
   const res = await db.collection(C.WHITELIST).where({ openid }).limit(1).get();
   const owner = res.data && res.data[0];
   if (!owner || owner.enabled === false) {
-    throw error("NO_PERMISSION", "当前微信用户未开通权限");
+    throw error("NO_PERMISSION", "当前账号未开通权限");
   }
   return openid;
 }
@@ -74,7 +74,7 @@ async function assertWhitelistOwner() {
   const res = await db.collection(C.WHITELIST).where({ openid }).limit(1).get();
   const person = res.data && res.data[0];
   if (!person || person.enabled === false) {
-    throw error("NO_PERMISSION", "当前微信用户未开通权限");
+    throw error("NO_PERMISSION", "当前账号未开通权限");
   }
   if (person.isOwner !== true) {
     throw error("OWNER_PERMISSION_REQUIRED", "只有老板可以管理白名单");
@@ -153,7 +153,7 @@ async function ensureExistingCollection(name, message) {
 async function ensureWhitelistApplicationsCollection() {
   await ensureExistingCollection(
     C.WHITELIST_APPLICATIONS,
-    "请先在云数据库创建 whitelist_applications 集合，并设置为仅云函数可读写"
+    "请先初始化 whitelist_applications 数据集合"
   );
 }
 

@@ -1,57 +1,70 @@
-# 美甲店记账会员小程序
+# QueenAngle Independent Web
 
-这是一个按 PRD v1.0 搭建的微信小程序 + 云开发项目骨架，面向美甲店老板本人使用。
+QueenAngle is now organized as an independent mobile-first Web application. This repository contains only the Web runtime:
 
-## 目录
+- `server/` - Node.js API, authentication, SQLite document store, file upload routes
+- `web/` - mobile Web client served by the Node app
+- `deploy/` - Caddy and production environment templates
+- `scripts/` - backup, restore, and health check scripts
+- `docs/` - Web deployment and remaining business documentation
 
-```text
-miniprogram/          小程序端代码
-cloudfunctions/       云函数
-database/             云数据库初始化说明
-docs/                 产品与数据设计文档
-```
-
-## 快速开始
-
-1. 用微信开发者工具导入本目录。
-2. 开通云开发并创建环境。
-3. 如需固定云环境，在 `miniprogram/app.js` 中填写 `cloudEnv`；不填时使用开发者工具当前云环境。
-4. 上传并部署 `cloudfunctions/login` 和 `cloudfunctions/business`。
-5. 按 `database/init.md` 创建集合并添加老板 openid 白名单。
-6. 在微信开发者工具中编译运行。
-
-## 核心集合
+The legacy WeChat mini program source has been separated to:
 
 ```text
-owner_whitelist
-whitelist_applications
-members
-services
-recharge_tiers
-card_types
-records
-balance_flows
-card_flows
+D:\queenangle-wechat-miniprogram-legacy
 ```
 
-金额统一以 `Cent` 字段保存，单位为分，避免小数精度问题。
+## Local Development
 
-## 第一版范围
+Local Docker runs the app on:
 
-已包含：
+```text
+http://127.0.0.1:3000
+```
 
-- openid 白名单校验
-- 会员新增、编辑、搜索
-- 服务项目、充值档位、次卡类型维护
-- 散客消费、会员充值、会员消费、次卡购买、次卡核销
-- 会员余额、折扣、次卡次数自动变更
-- 今日流水、会员详情、单笔记录详情
-- 历史作废与会员状态重算逻辑
+Start or rebuild:
 
-未包含：
+```bash
+docker compose up -d --build
+```
 
-- 微信支付
-- Web 后台
-- 多用户权限
-- Excel 导出
-- 复杂经营分析
+Check status:
+
+```bash
+docker compose ps
+```
+
+Default local accounts are configured in `.env`:
+
+```text
+owner / owner123456
+partner / partner123456
+```
+
+Change these before any production deployment.
+
+## Data
+
+Local runtime data is not committed:
+
+```text
+data/queenangle.sqlite
+uploads/
+```
+
+Inside Docker these are mounted as:
+
+```text
+/data/db/queenangle.sqlite
+/data/uploads
+```
+
+## Production
+
+Production deployment is documented here:
+
+```text
+docs/production-deploy.md
+```
+
+Production keeps code inside the Docker image, while SQLite data, uploaded signatures, accounts, and secrets stay on the server host.

@@ -1,8 +1,0 @@
-.summary-toggle {
-  margin: 0;
-}
-
-.void-record {
-  border-color: #fecaca;
-  background: #fff7f7;
-}

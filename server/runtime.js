@@ -14,7 +14,7 @@ function runWithContext(context, fn) {
   return storage.run(context, fn);
 }
 
-const cloud = {
+const appRuntime = {
   DYNAMIC_CURRENT_ENV: "local",
   init() {},
   database() {
@@ -33,15 +33,15 @@ const cloud = {
       }
     };
   },
-  getWXContext() {
+  getUserContext() {
     const { user } = getContext();
     return {
-      OPENID: user && user.id ? user.id : ""
+      userId: user && user.id ? user.id : ""
     };
   }
 };
 
 module.exports = {
-  cloud,
+  appRuntime,
   runWithContext
 };
