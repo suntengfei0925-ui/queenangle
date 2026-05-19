@@ -1211,6 +1211,11 @@ function renderMembers(members) {
   const groups = groupMembersByInitial(list);
   el.memberList.classList.toggle("indexed", groups.length > 0);
   groups.forEach((group) => {
+    const anchor = document.createElement("div");
+    anchor.className = "member-group-anchor";
+    anchor.dataset.memberGroupAnchor = group.letter;
+    el.memberList.appendChild(anchor);
+
     const title = document.createElement("div");
     title.className = "member-group-title";
     title.dataset.memberGroup = group.letter;
@@ -1255,9 +1260,9 @@ function renderMemberAlphaIndex(letters) {
   });
 }
 
-function findMemberGroupTitle(letter) {
-  return Array.from(el.memberList.querySelectorAll("[data-member-group]"))
-    .find((item) => item.dataset.memberGroup === letter) || null;
+function findMemberGroupAnchor(letter) {
+  return Array.from(el.memberList.querySelectorAll("[data-member-group-anchor]"))
+    .find((item) => item.dataset.memberGroupAnchor === letter) || null;
 }
 
 function showMemberAlphaOverlay(letter) {
@@ -1272,21 +1277,34 @@ function showMemberAlphaOverlay(letter) {
 
 function jumpToMemberGroup(letter) {
   if (!letter) return;
-  const title = findMemberGroupTitle(letter);
-  if (!title) return;
+  const anchor = findMemberGroupAnchor(letter);
+  if (!anchor) return;
   const appHeader = document.querySelector(".app-header");
   const headerHeight = appHeader ? appHeader.getBoundingClientRect().height : 0;
-  const top = title.getBoundingClientRect().top + window.scrollY - headerHeight - 8;
-  window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+  anchor.style.scrollMarginTop = `${Math.ceil(headerHeight + 8)}px`;
+  anchor.scrollIntoView({ block: "start", behavior: "auto" });
   showMemberAlphaOverlay(letter);
 }
 
 function memberAlphaLetterFromPoint(clientX, clientY) {
   if (!el.memberAlphaIndex || el.memberAlphaIndex.hidden) return "";
-  const target = document.elementFromPoint(clientX, clientY);
-  const letterNode = target && target.closest ? target.closest("[data-alpha-letter]") : null;
-  if (!letterNode || !el.memberAlphaIndex.contains(letterNode)) return "";
-  return letterNode.dataset.alphaLetter || "";
+  const letters = Array.from(el.memberAlphaIndex.querySelectorAll("[data-alpha-letter]"));
+  if (letters.length === 0) return "";
+
+  const indexRect = el.memberAlphaIndex.getBoundingClientRect();
+  const clampedY = Math.min(Math.max(clientY, indexRect.top), indexRect.bottom);
+  const directHit = letters.find((letterNode) => {
+    const rect = letterNode.getBoundingClientRect();
+    return clampedY >= rect.top && clampedY <= rect.bottom;
+  });
+  if (directHit) return directHit.dataset.alphaLetter || "";
+
+  return letters.reduce((closest, letterNode) => {
+    const rect = letterNode.getBoundingClientRect();
+    const distance = Math.abs(clampedY - (rect.top + rect.height / 2));
+    if (!closest || distance < closest.distance) return { letterNode, distance };
+    return closest;
+  }, null).letterNode.dataset.alphaLetter || "";
 }
 
 function handleMemberAlphaPointer(event) {

@@ -532,6 +532,11 @@ textarea {
   padding-right: 30px;
 }
 
+.member-group-anchor {
+  height: 0;
+  scroll-margin-top: 72px;
+}
+
 .member-group-title {
   position: sticky;
   top: 58px;
