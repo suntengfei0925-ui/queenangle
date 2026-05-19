@@ -805,7 +805,6 @@ async function saveMember(event) {
   const importInfo = normalizeMemberImport(event.importInfo);
 
   if (!name) throw error("VALIDATION_ERROR", "会员姓名不能为空");
-  if (!phone) throw error("VALIDATION_ERROR", "会员手机号不能为空");
 
   const payload = {
     name,
@@ -818,9 +817,11 @@ async function saveMember(event) {
 
   return db.runTransaction(async (transaction) => {
     const memberCollection = transaction.collection(C.MEMBERS);
-    const samePhone = await memberCollection.where({ phone }).limit(10).get();
-    const duplicated = (samePhone.data || []).some((item) => item._id !== id);
-    if (duplicated) throw error("DUPLICATE_PHONE", "该手机号已存在会员");
+    if (phone) {
+      const samePhone = await memberCollection.where({ phone }).limit(10).get();
+      const duplicated = (samePhone.data || []).some((item) => item._id !== id);
+      if (duplicated) throw error("DUPLICATE_PHONE", "该手机号已存在会员");
+    }
 
     if (id) {
       await memberCollection.doc(id).update({ data: payload });

@@ -144,6 +144,46 @@ const mutatingBusinessActions = new Set([
   "editRecord"
 ]);
 
+function lockViewportZoom() {
+  const viewport = document.querySelector('meta[name="viewport"]');
+  const lockedViewport = "width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover";
+  if (viewport && viewport.getAttribute("content") !== lockedViewport) {
+    viewport.setAttribute("content", lockedViewport);
+  }
+
+  ["gesturestart", "gesturechange", "gestureend"].forEach((type) => {
+    document.addEventListener(type, (event) => event.preventDefault(), { passive: false });
+  });
+
+  document.addEventListener("touchmove", (event) => {
+    if (event.touches.length > 1) event.preventDefault();
+  }, { passive: false });
+
+  let lastTouch = { time: 0, x: 0, y: 0, target: null };
+  document.addEventListener("touchend", (event) => {
+    if (event.changedTouches.length !== 1) return;
+
+    const touch = event.changedTouches[0];
+    const now = Date.now();
+    const sameTarget = event.target === lastTouch.target;
+    const quickRepeat = now - lastTouch.time < 350;
+    const closeRepeat = Math.abs(touch.clientX - lastTouch.x) < 24 && Math.abs(touch.clientY - lastTouch.y) < 24;
+
+    if (sameTarget && quickRepeat && closeRepeat) {
+      event.preventDefault();
+    }
+
+    lastTouch = {
+      time: now,
+      x: touch.clientX,
+      y: touch.clientY,
+      target: event.target
+    };
+  }, { passive: false });
+}
+
+lockViewportZoom();
+
 const el = {
   toast: document.querySelector("#toast"),
   offlineBanner: document.querySelector("#offline-banner"),
@@ -327,6 +367,10 @@ const el = {
   checkoutServicePersonSheet: document.querySelector("#checkout-service-person-sheet"),
   checkoutServicePersonList: document.querySelector("#checkout-service-person-list"),
   checkoutCloseServicePerson: document.querySelector("#checkout-close-service-person"),
+  checkoutConfirmMask: document.querySelector("#checkout-confirm-mask"),
+  checkoutConfirmContent: document.querySelector("#checkout-confirm-content"),
+  checkoutConfirmCancel: document.querySelector("#checkout-confirm-cancel"),
+  checkoutConfirmSign: document.querySelector("#checkout-confirm-sign"),
   signatureSheet: document.querySelector("#signature-sheet"),
   signatureCanvas: document.querySelector("#signature-canvas"),
   signatureClear: document.querySelector("#signature-clear"),
@@ -1990,10 +2034,6 @@ function validateMemberEdit() {
     showToast("会员姓名不能为空");
     return null;
   }
-  if (!normalizeText(state.editForm.phone)) {
-    showToast("会员手机号不能为空");
-    return null;
-  }
   if ((state.editForm.birthdayMonth && !state.editForm.birthdayDay) || (!state.editForm.birthdayMonth && state.editForm.birthdayDay)) {
     showToast("请选择完整生日");
     return null;
@@ -2592,6 +2632,7 @@ function emptyCheckoutState() {
     servicePeople: [],
     remark: "",
     signature: null,
+    confirmation: null,
     configLoaded: false
   };
 }
@@ -2918,6 +2959,146 @@ function buildCheckoutSnapshotInfo() {
   return { snapshot, hash: hashSnapshot(snapshot) };
 }
 
+function buildCheckoutConfirmationView(snapshot) {
+  const serviceItems = (snapshot.serviceItems || []).map((item, index) => ({
+    key: `${item.serviceId || "service"}-${index}`,
+    displayName: formatServiceItemName(item),
+    originalYuan: money(item.originalAmountCent)
+  }));
+  const cardItems = (snapshot.cardItems || []).map((item, index) => ({
+    key: `${item.cardTypeId || "card"}-${index}`,
+    cardName: item.cardName || "-",
+    useTimes: Number(item.useTimes || 0),
+    remainingTimesAfter: Number(item.remainingTimesAfter || 0)
+  }));
+  const hasShortageExtraPay = !!snapshot.shortageExtraPayRule && Number(snapshot.extraPayCent || 0) > 0;
+
+  return {
+    servicePersonName: snapshot.servicePersonName || "-",
+    serviceItems,
+    cardItems,
+    hasServiceItems: serviceItems.length > 0,
+    balanceBefore: money(snapshot.balanceBeforeCent),
+    balancePay: money(snapshot.balancePayCent),
+    balanceAfter: money(snapshot.balanceAfterCent),
+    originalAmount: money(snapshot.originalAmountCent),
+    discountText: snapshot.discountLabelApplied || "无折扣",
+    payable: money(snapshot.consumptionAmountCent),
+    balanceCoveredOriginal: money(snapshot.balanceCoveredOriginalCent),
+    extraPay: money(snapshot.extraPayCent),
+    settlementAmount: money(snapshot.settlementAmountCent),
+    hasShortageExtraPay,
+    shortageExplanation: hasShortageExtraPay ? `余额 ${money(snapshot.balancePayCent)} 可抵扣原价 ${money(snapshot.balanceCoveredOriginalCent)}，剩余原价 ${money(snapshot.extraPayCent)} 需补差。` : "",
+    extraPaymentText: formatPayment(snapshot.extraPaymentMethod),
+    hasRemark: !!snapshot.remark,
+    remark: snapshot.remark || ""
+  };
+}
+
+function appendConfirmRow(section, label, value, options = {}) {
+  const row = document.createElement("div");
+  row.className = `checkout-confirm-row${options.highlight ? " highlight" : ""}`;
+  const labelNode = document.createElement("span");
+  labelNode.className = options.highlight ? "" : "muted";
+  labelNode.textContent = label;
+  const valueNode = document.createElement("span");
+  valueNode.className = `checkout-confirm-value${options.danger ? " danger" : ""}`;
+  valueNode.textContent = value;
+  row.append(labelNode, valueNode);
+  section.appendChild(row);
+}
+
+function createConfirmSection(title) {
+  const section = document.createElement("section");
+  section.className = "checkout-confirm-section";
+  if (title) {
+    const heading = document.createElement("div");
+    heading.className = "checkout-confirm-section-title";
+    heading.textContent = title;
+    section.appendChild(heading);
+  }
+  return section;
+}
+
+function renderCheckoutConfirm(snapshotInfo) {
+  const view = buildCheckoutConfirmationView(snapshotInfo.snapshot);
+  el.checkoutConfirmContent.innerHTML = "";
+
+  const serviceSection = createConfirmSection("");
+  appendConfirmRow(serviceSection, "服务人", view.servicePersonName);
+  el.checkoutConfirmContent.appendChild(serviceSection);
+
+  const balanceSection = createConfirmSection("余额变化");
+  appendConfirmRow(balanceSection, "期初余额", view.balanceBefore);
+  appendConfirmRow(balanceSection, "余额支付", `-${view.balancePay}`, { danger: true, highlight: true });
+  appendConfirmRow(balanceSection, "消费后余额", view.balanceAfter);
+  el.checkoutConfirmContent.appendChild(balanceSection);
+
+  if (view.hasServiceItems) {
+    const amountSection = createConfirmSection("消费金额");
+    const list = document.createElement("div");
+    list.className = "checkout-confirm-list";
+    view.serviceItems.forEach((item) => {
+      const row = document.createElement("div");
+      row.className = "checkout-confirm-item";
+      const name = document.createElement("span");
+      name.textContent = item.displayName;
+      const amount = document.createElement("span");
+      amount.className = "checkout-confirm-value";
+      amount.textContent = item.originalYuan;
+      row.append(name, amount);
+      list.appendChild(row);
+    });
+    amountSection.appendChild(list);
+    appendConfirmRow(amountSection, "项目原价合计", view.originalAmount);
+    appendConfirmRow(amountSection, "当前折扣", view.discountText);
+    appendConfirmRow(amountSection, "整单会员价", view.payable, { highlight: true });
+    if (view.hasShortageExtraPay) {
+      const note = document.createElement("div");
+      note.className = "checkout-confirm-note";
+      note.textContent = view.shortageExplanation;
+      amountSection.appendChild(note);
+      appendConfirmRow(amountSection, "余额可抵扣原价", view.balanceCoveredOriginal);
+    }
+    appendConfirmRow(amountSection, "补差价", view.extraPay);
+    appendConfirmRow(amountSection, "本单结算金额", view.settlementAmount, { highlight: true });
+    if (view.extraPaymentText !== "-") {
+      appendConfirmRow(amountSection, "补差价支付方式", view.extraPaymentText);
+    }
+    el.checkoutConfirmContent.appendChild(amountSection);
+  }
+
+  if (view.cardItems.length > 0) {
+    const cardSection = createConfirmSection("次卡变化");
+    view.cardItems.forEach((item) => {
+      const box = document.createElement("div");
+      box.className = "checkout-card-change";
+      const name = document.createElement("div");
+      name.className = "checkout-card-change-name";
+      name.textContent = item.cardName;
+      const meta = document.createElement("div");
+      meta.className = "checkout-card-change-meta";
+      const used = document.createElement("span");
+      used.className = "danger";
+      used.textContent = `扣 ${item.useTimes} 次`;
+      const remain = document.createElement("span");
+      remain.textContent = `使用后剩余 ${item.remainingTimesAfter} 次`;
+      meta.append(used, remain);
+      box.append(name, meta);
+      cardSection.appendChild(box);
+    });
+    el.checkoutConfirmContent.appendChild(cardSection);
+  }
+
+  if (view.hasRemark) {
+    const remarkSection = createConfirmSection("备注");
+    const remark = document.createElement("div");
+    remark.textContent = view.remark;
+    remarkSection.appendChild(remark);
+    el.checkoutConfirmContent.appendChild(remarkSection);
+  }
+}
+
 function validateCheckout() {
   const person = state.checkout.selectedServicePerson;
   if (!person || !person.openid || !person.name) {
@@ -3015,6 +3196,39 @@ function endSignatureDraw() {
   signatureLastPoint = null;
 }
 
+function closeCheckoutConfirm() {
+  state.checkout.confirmation = null;
+  el.checkoutConfirmMask.hidden = true;
+  el.checkoutConfirmContent.innerHTML = "";
+}
+
+function openCheckoutConfirm() {
+  if (!validateCheckout()) return;
+  const snapshotInfo = buildCheckoutSnapshotInfo();
+  state.checkout.confirmation = snapshotInfo;
+  renderCheckoutConfirm(snapshotInfo);
+  el.checkoutConfirmMask.hidden = false;
+}
+
+function confirmCheckoutAndOpenSignature() {
+  const snapshotInfo = state.checkout.confirmation;
+  if (!snapshotInfo) {
+    closeCheckoutConfirm();
+    openCheckoutConfirm();
+    return;
+  }
+
+  const currentHash = buildCheckoutSnapshotInfo().hash;
+  closeCheckoutConfirm();
+  if (snapshotInfo.hash !== currentHash) {
+    showToast("结账内容已修改，请重新确认");
+    openCheckoutConfirm();
+    return;
+  }
+
+  openSignatureSheet();
+}
+
 function openSignatureSheet() {
   if (!validateCheckout()) return;
   el.signatureSheet.hidden = false;
@@ -3067,7 +3281,7 @@ async function submitCheckout() {
   const snapshotInfo = buildCheckoutSnapshotInfo();
   const signature = state.checkout.signature;
   if (!signature || signature.snapshotHash !== snapshotInfo.hash) {
-    openSignatureSheet();
+    openCheckoutConfirm();
     return;
   }
 
@@ -3393,7 +3607,13 @@ el.checkoutRemark.addEventListener("input", (event) => {
   invalidateCheckoutSignature();
 });
 
-el.checkoutResignButton.addEventListener("click", openSignatureSheet);
+el.checkoutResignButton.addEventListener("click", openCheckoutConfirm);
+
+el.checkoutConfirmCancel.addEventListener("click", closeCheckoutConfirm);
+el.checkoutConfirmSign.addEventListener("click", confirmCheckoutAndOpenSignature);
+el.checkoutConfirmMask.addEventListener("click", (event) => {
+  if (event.target === el.checkoutConfirmMask) closeCheckoutConfirm();
+});
 
 el.checkoutForm.addEventListener("submit", async (event) => {
   event.preventDefault();

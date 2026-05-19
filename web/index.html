@@ -2,7 +2,7 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>QueenAngle</title>
     <meta name="application-name" content="QueenAngle">
     <meta name="apple-mobile-web-app-title" content="QueenAngle">
@@ -573,6 +573,17 @@
           </section>
         </div>
 
+        <div id="checkout-confirm-mask" class="checkout-confirm-mask" hidden>
+          <section class="checkout-confirm-dialog">
+            <h2>请确认本次会员结账</h2>
+            <div id="checkout-confirm-content" class="checkout-confirm-content"></div>
+            <div class="checkout-confirm-actions">
+              <button id="checkout-confirm-cancel" class="secondary" type="button">返回修改</button>
+              <button id="checkout-confirm-sign" class="primary" type="button">确认并签字</button>
+            </div>
+          </section>
+        </div>
+
         <div id="signature-sheet" class="signature-mask" hidden>
           <section class="signature-dialog">
             <h2>请客户签字确认</h2>
@@ -636,7 +647,7 @@
 
           <label class="field">
             <span class="label">手机号</span>
-            <input id="edit-phone" placeholder="请输入手机号" inputmode="numeric" autocomplete="tel">
+            <input id="edit-phone" placeholder="请输入手机号，可不填" inputmode="numeric" autocomplete="tel">
           </label>
 
           <div class="field">
