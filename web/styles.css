@@ -528,6 +528,23 @@ textarea {
   padding-bottom: 72px;
 }
 
+.member-list.indexed {
+  padding-right: 30px;
+}
+
+.member-group-title {
+  position: sticky;
+  top: 58px;
+  z-index: 4;
+  margin: 2px 0 -2px;
+  padding: 6px 4px;
+  background: rgba(246, 247, 249, 0.96);
+  color: #374151;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
 .member-item {
   display: grid;
   gap: 4px;
@@ -546,6 +563,63 @@ textarea {
 
 .member-item span {
   color: var(--muted);
+}
+
+.member-alpha-index {
+  position: fixed;
+  top: 50%;
+  right: max(4px, calc((100vw - 560px) / 2 + 4px));
+  z-index: 11;
+  display: flex;
+  max-height: min(72vh, 500px);
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+  transform: translateY(-50%);
+  border: 1px solid rgba(229, 231, 235, 0.82);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6px 3px;
+  touch-action: none;
+  user-select: none;
+}
+
+.member-alpha-letter {
+  display: grid;
+  width: 24px;
+  min-height: 17px;
+  place-items: center;
+  border-radius: 999px;
+  background: transparent;
+  color: #4b5563;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.member-alpha-letter:active {
+  background: #111827;
+  color: #ffffff;
+}
+
+.member-alpha-overlay {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 160;
+  display: grid;
+  width: 96px;
+  height: 96px;
+  place-items: center;
+  transform: translate(-50%, -50%);
+  border-radius: 18px;
+  background: rgba(17, 24, 39, 0.9);
+  color: #ffffff;
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .fixed-action {

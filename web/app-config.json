@@ -5,14 +5,14 @@
       {
         "id": "purchase-ledger",
         "name": "进货台账",
-        "url": "https://mcn44hy96wn8.feishu.cn/wiki/Jbgzw5cntigw36kkyh0cUOrVnng?table=tbl3W947Dzap2tgy&view=vew4Pni2OJ",
+        "url": "https://applink.feishu.cn/client/docs/open?url=https%3A%2F%2Fmcn44hy96wn8.feishu.cn%2Fwiki%2FJbgzw5cntigw36kkyh0cUOrVnng%3Ftable%3Dtbl3W947Dzap2tgy%26view%3Dvew4Pni2OJ",
         "enabled": true,
         "order": 10
       },
       {
         "id": "purchase-form",
         "name": "新增进货记录",
-        "url": "https://mcn44hy96wn8.feishu.cn/wiki/Jbgzw5cntigw36kkyh0cUOrVnng?table=tbl3W947Dzap2tgy&view=vewpBQIuBr",
+        "url": "https://applink.feishu.cn/client/docs/open?url=https%3A%2F%2Fmcn44hy96wn8.feishu.cn%2Fwiki%2FJbgzw5cntigw36kkyh0cUOrVnng%3Ftable%3Dtbl3W947Dzap2tgy%26view%3DvewpBQIuBr",
         "enabled": true,
         "order": 20
       }

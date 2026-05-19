@@ -22,6 +22,7 @@ const C = {
 const PAYMENT_METHODS = ["wechat", "alipay", "cash"];
 const OFFLINE_BOOKS = ["本子1", "本子2", "本子3", "本子4"];
 const SHORTAGE_EXTRA_PAY_RULE = "balance_discount_cover_original_v1";
+const MEMBER_LIST_LIMIT = 1000;
 
 function error(code, message) {
   const err = new Error(message);
@@ -785,7 +786,10 @@ async function listServicePeople() {
 async function listMembers(event) {
   await assertOwner();
   const keyword = normalizeText(event.keyword).toLowerCase();
-  const res = await db.collection(C.MEMBERS).orderBy("updatedAt", "desc").limit(200).get();
+  const query = keyword
+    ? db.collection(C.MEMBERS).orderBy("updatedAt", "desc")
+    : db.collection(C.MEMBERS);
+  const res = await query.limit(MEMBER_LIST_LIMIT).get();
   const data = res.data || [];
   if (!keyword) return data;
   return data.filter((member) => {

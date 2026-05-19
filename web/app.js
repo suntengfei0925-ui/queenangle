@@ -6,6 +6,8 @@ const state = {
   toastTimer: null,
   isOnline: typeof navigator === "undefined" ? true : navigator.onLine,
   memberKeyword: "",
+  memberAlphaIndexActive: false,
+  memberAlphaOverlayTimer: null,
   members: [],
   selectedMemberId: "",
   previousView: "entry",
@@ -129,6 +131,32 @@ const titles = {
 const settingsConfigViews = ["service-categories", "services", "recharge-tiers", "card-types"];
 const monthOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 const daysPerMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const pinyinCollator = new Intl.Collator("zh-Hans-u-co-pinyin", { numeric: true, sensitivity: "base" });
+const PINYIN_INITIAL_BOUNDARIES = [
+  ["A", "阿"],
+  ["B", "八"],
+  ["C", "嚓"],
+  ["D", "咑"],
+  ["E", "妸"],
+  ["F", "发"],
+  ["G", "旮"],
+  ["H", "哈"],
+  ["J", "击"],
+  ["K", "咔"],
+  ["L", "垃"],
+  ["M", "妈"],
+  ["N", "拿"],
+  ["O", "噢"],
+  ["P", "啪"],
+  ["Q", "七"],
+  ["R", "然"],
+  ["S", "撒"],
+  ["T", "他"],
+  ["W", "挖"],
+  ["X", "昔"],
+  ["Y", "压"],
+  ["Z", "匝"]
+];
 const OFFLINE_MESSAGE = "网络不可用，请连接网络后重试";
 const APP_CONFIG_URL = "/app-config.json";
 const mutatingBusinessActions = new Set([
@@ -252,6 +280,8 @@ const el = {
   memberKeyword: document.querySelector("#member-keyword"),
   membersEmpty: document.querySelector("#members-empty"),
   memberList: document.querySelector("#member-list"),
+  memberAlphaIndex: document.querySelector("#member-alpha-index"),
+  memberAlphaOverlay: document.querySelector("#member-alpha-overlay"),
   addMemberButton: document.querySelector("#add-member-button"),
   memberName: document.querySelector("#member-name"),
   memberPhone: document.querySelector("#member-phone"),
@@ -704,6 +734,61 @@ function applySettingsExternalLinksConfig(config) {
   state.settingsExternalLinks.items = normalizeSettingsExternalLinks(config);
 }
 
+function isCjkCharacter(value) {
+  return /^[\u3400-\u9fff]$/.test(value);
+}
+
+function getChineseInitial(char) {
+  for (let i = PINYIN_INITIAL_BOUNDARIES.length - 1; i >= 0; i -= 1) {
+    const [letter, boundary] = PINYIN_INITIAL_BOUNDARIES[i];
+    if (pinyinCollator.compare(char, boundary) >= 0) return letter;
+  }
+  return "#";
+}
+
+function memberSortName(member) {
+  return normalizeText(member && member.name);
+}
+
+function getMemberInitial(member) {
+  const name = memberSortName(member);
+  if (!name) return "#";
+  const first = Array.from(name)[0];
+  const upper = first.toUpperCase();
+  if (/^[A-Z]$/.test(upper)) return upper;
+  if (isCjkCharacter(first)) return getChineseInitial(first);
+  return "#";
+}
+
+function compareMembersByName(a, b) {
+  const nameResult = pinyinCollator.compare(memberSortName(a), memberSortName(b));
+  if (nameResult !== 0) return nameResult;
+  return normalizeText(a && a.phone).localeCompare(normalizeText(b && b.phone));
+}
+
+function compareMemberGroups(a, b) {
+  if (a === b) return 0;
+  if (a === "#") return 1;
+  if (b === "#") return -1;
+  return a.localeCompare(b);
+}
+
+function groupMembersByInitial(members) {
+  const groups = new Map();
+  (Array.isArray(members) ? members : []).forEach((member) => {
+    const letter = getMemberInitial(member);
+    if (!groups.has(letter)) groups.set(letter, []);
+    groups.get(letter).push(member);
+  });
+
+  return Array.from(groups.entries())
+    .sort(([letterA], [letterB]) => compareMemberGroups(letterA, letterB))
+    .map(([letter, items]) => ({
+      letter,
+      items: items.slice().sort(compareMembersByName)
+    }));
+}
+
 function normalizeForHash(value) {
   if (Array.isArray(value)) return value.map(normalizeForHash);
   if (value && typeof value === "object") {
@@ -1112,21 +1197,103 @@ function renderRecords(records) {
 
 function renderMembers(members) {
   const list = Array.isArray(members) ? members : [];
+  const isSearching = !!normalizeText(state.memberKeyword);
   el.membersEmpty.hidden = list.length > 0;
   el.memberList.innerHTML = "";
 
-  list.forEach((member) => {
-    const item = document.createElement("button");
-    item.type = "button";
-    item.className = "list-item member-item";
-    const name = document.createElement("strong");
-    const phone = document.createElement("span");
-    name.textContent = member.name || "-";
-    phone.textContent = member.phone || "";
-    item.append(name, phone);
-    item.addEventListener("click", () => showMemberDetail(member._id));
-    el.memberList.appendChild(item);
+  if (isSearching) {
+    el.memberList.classList.remove("indexed");
+    renderMemberAlphaIndex([]);
+    list.forEach((member) => el.memberList.appendChild(createMemberItem(member)));
+    return;
+  }
+
+  const groups = groupMembersByInitial(list);
+  el.memberList.classList.toggle("indexed", groups.length > 0);
+  groups.forEach((group) => {
+    const title = document.createElement("div");
+    title.className = "member-group-title";
+    title.dataset.memberGroup = group.letter;
+    title.textContent = group.letter;
+    el.memberList.appendChild(title);
+
+    group.items.forEach((member) => {
+      el.memberList.appendChild(createMemberItem(member));
+    });
   });
+  renderMemberAlphaIndex(groups.map((group) => group.letter));
+}
+
+function createMemberItem(member) {
+  const item = document.createElement("button");
+  item.type = "button";
+  item.className = "list-item member-item";
+  const name = document.createElement("strong");
+  const phone = document.createElement("span");
+  name.textContent = member.name || "-";
+  phone.textContent = member.phone || "";
+  item.append(name, phone);
+  item.addEventListener("click", () => showMemberDetail(member._id));
+  return item;
+}
+
+function renderMemberAlphaIndex(letters) {
+  if (!el.memberAlphaIndex) return;
+  const list = Array.isArray(letters) ? letters : [];
+  const shouldShow = state.view === "members" && list.length > 0 && !normalizeText(state.memberKeyword);
+  el.memberAlphaIndex.hidden = !shouldShow;
+  el.memberAlphaIndex.innerHTML = "";
+  if (!shouldShow) return;
+
+  list.forEach((letter) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "member-alpha-letter";
+    button.dataset.alphaLetter = letter;
+    button.textContent = letter;
+    el.memberAlphaIndex.appendChild(button);
+  });
+}
+
+function findMemberGroupTitle(letter) {
+  return Array.from(el.memberList.querySelectorAll("[data-member-group]"))
+    .find((item) => item.dataset.memberGroup === letter) || null;
+}
+
+function showMemberAlphaOverlay(letter) {
+  if (!el.memberAlphaOverlay) return;
+  window.clearTimeout(state.memberAlphaOverlayTimer);
+  el.memberAlphaOverlay.textContent = letter;
+  el.memberAlphaOverlay.hidden = false;
+  state.memberAlphaOverlayTimer = window.setTimeout(() => {
+    el.memberAlphaOverlay.hidden = true;
+  }, 650);
+}
+
+function jumpToMemberGroup(letter) {
+  if (!letter) return;
+  const title = findMemberGroupTitle(letter);
+  if (!title) return;
+  const appHeader = document.querySelector(".app-header");
+  const headerHeight = appHeader ? appHeader.getBoundingClientRect().height : 0;
+  const top = title.getBoundingClientRect().top + window.scrollY - headerHeight - 8;
+  window.scrollTo({ top: Math.max(0, top), behavior: "auto" });
+  showMemberAlphaOverlay(letter);
+}
+
+function memberAlphaLetterFromPoint(clientX, clientY) {
+  if (!el.memberAlphaIndex || el.memberAlphaIndex.hidden) return "";
+  const target = document.elementFromPoint(clientX, clientY);
+  const letterNode = target && target.closest ? target.closest("[data-alpha-letter]") : null;
+  if (!letterNode || !el.memberAlphaIndex.contains(letterNode)) return "";
+  return letterNode.dataset.alphaLetter || "";
+}
+
+function handleMemberAlphaPointer(event) {
+  const letter = memberAlphaLetterFromPoint(event.clientX, event.clientY);
+  if (!letter) return;
+  event.preventDefault();
+  jumpToMemberGroup(letter);
 }
 
 async function loadMembers() {
@@ -3500,6 +3667,26 @@ el.memberKeyword.addEventListener("keydown", (event) => {
     window.clearTimeout(state.keywordTimer);
     loadMembers();
   }
+});
+
+el.memberAlphaIndex.addEventListener("pointerdown", (event) => {
+  if (el.memberAlphaIndex.hidden) return;
+  state.memberAlphaIndexActive = true;
+  if (el.memberAlphaIndex.setPointerCapture) {
+    el.memberAlphaIndex.setPointerCapture(event.pointerId);
+  }
+  handleMemberAlphaPointer(event);
+});
+
+el.memberAlphaIndex.addEventListener("pointermove", (event) => {
+  if (!state.memberAlphaIndexActive) return;
+  handleMemberAlphaPointer(event);
+});
+
+["pointerup", "pointercancel", "lostpointercapture"].forEach((type) => {
+  el.memberAlphaIndex.addEventListener(type, () => {
+    state.memberAlphaIndexActive = false;
+  });
 });
 
 el.addMemberButton.addEventListener("click", () => openMemberEdit("", "members"));
