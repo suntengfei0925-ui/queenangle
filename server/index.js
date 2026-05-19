@@ -26,7 +26,7 @@ function securityHeaders(req, res, next) {
 
 function staticHeaders(res, filePath) {
   const fileName = path.basename(filePath);
-  if (["index.html", "app.js", "styles.css", "manifest.webmanifest", "sw.js"].includes(fileName)) {
+  if (["index.html", "app.js", "styles.css", "manifest.webmanifest", "sw.js", "app-config.json"].includes(fileName)) {
     res.setHeader("Cache-Control", "no-cache");
   }
 }

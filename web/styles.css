@@ -655,6 +655,21 @@ textarea {
   gap: 8px;
 }
 
+.settings-external-links-divider {
+  height: 1px;
+  background: var(--line);
+}
+
+.settings-external-link-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-external-link {
+  width: 100%;
+}
+
 .list-item {
   display: grid;
   gap: 8px;

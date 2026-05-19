@@ -69,6 +69,11 @@ const state = {
     returnView: "home",
     record: null
   },
+  settingsExternalLinks: {
+    loaded: false,
+    dividerBefore: false,
+    items: []
+  },
   settingsConfig: {
     serviceMode: "list",
     tierMode: "list",
@@ -125,6 +130,7 @@ const settingsConfigViews = ["service-categories", "services", "recharge-tiers",
 const monthOptions = Array.from({ length: 12 }, (_, index) => String(index + 1));
 const daysPerMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 const OFFLINE_MESSAGE = "网络不可用，请连接网络后重试";
+const APP_CONFIG_URL = "/app-config.json";
 const mutatingBusinessActions = new Set([
   "saveWhitelistPerson",
   "saveMember",
@@ -197,6 +203,8 @@ const el = {
   refreshButton: document.querySelector("#refresh-button"),
   logoutButton: document.querySelector("#logout-button"),
   currentUser: document.querySelector("#current-user"),
+  settingsExternalLinksDivider: document.querySelector("#settings-external-links-divider"),
+  settingsExternalLinkList: document.querySelector("#settings-external-link-list"),
   categoryForm: document.querySelector("#category-form"),
   categoryFormTitle: document.querySelector("#category-form-title"),
   categoryName: document.querySelector("#category-name"),
@@ -663,6 +671,39 @@ function normalizeText(value) {
   return String(value === null || value === undefined ? "" : value).trim();
 }
 
+function isHttpUrl(value) {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch (err) {
+    return false;
+  }
+}
+
+function normalizeSettingsExternalLinks(config) {
+  const items = Array.isArray(config && config.items) ? config.items : [];
+  return items
+    .map((item, index) => {
+      const name = normalizeText(item && item.name);
+      const url = normalizeText(item && item.url);
+      const order = Number(item && item.order);
+      return {
+        id: normalizeText(item && item.id) || `settings-external-link-${index}`,
+        name,
+        url,
+        enabled: item && item.enabled !== false,
+        order: Number.isFinite(order) ? order : 0
+      };
+    })
+    .filter((item) => item.enabled && item.name && item.url && isHttpUrl(item.url))
+    .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, "zh-CN"));
+}
+
+function applySettingsExternalLinksConfig(config) {
+  state.settingsExternalLinks.dividerBefore = !!(config && config.dividerBefore);
+  state.settingsExternalLinks.items = normalizeSettingsExternalLinks(config);
+}
+
 function normalizeForHash(value) {
   if (Array.isArray(value)) return value.map(normalizeForHash);
   if (value && typeof value === "object") {
@@ -914,6 +955,9 @@ function showApp() {
   el.appScreen.hidden = false;
   el.currentUser.textContent = state.user ? `${state.user.name}（${state.user.username}）` : "-";
   renderView();
+  if (!state.settingsExternalLinks.loaded) {
+    loadSettingsExternalLinks();
+  }
 }
 
 function setView(view, options = {}) {
@@ -1028,6 +1072,7 @@ function renderView() {
   });
 
   renderSummaryToggle();
+  renderSettingsExternalLinks();
 }
 
 function renderSummaryToggle() {
@@ -1816,6 +1861,46 @@ function loadSettingsConfig(view) {
   if (view === "recharge-tiers") return loadRechargeTiers();
   if (view === "card-types") return loadCardTypes();
   return null;
+}
+
+async function loadSettingsExternalLinks() {
+  try {
+    const res = await fetch(APP_CONFIG_URL, {
+      cache: "no-store",
+      credentials: "same-origin"
+    });
+    if (!res.ok) throw new Error("APP_CONFIG_LOAD_FAILED");
+    const config = await res.json();
+    applySettingsExternalLinksConfig(config && config.settingsExternalLinks);
+  } catch (err) {
+    applySettingsExternalLinksConfig(null);
+  } finally {
+    state.settingsExternalLinks.loaded = true;
+    renderSettingsExternalLinks();
+  }
+}
+
+function renderSettingsExternalLinks() {
+  if (!el.settingsExternalLinksDivider || !el.settingsExternalLinkList) return;
+  const items = state.settingsExternalLinks.items || [];
+  const hasItems = items.length > 0;
+
+  el.settingsExternalLinksDivider.hidden = !hasItems || !state.settingsExternalLinks.dividerBefore;
+  el.settingsExternalLinkList.hidden = !hasItems;
+  el.settingsExternalLinkList.innerHTML = "";
+
+  items.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "list-button settings-external-link";
+    button.textContent = item.name;
+    button.dataset.externalLinkId = item.id;
+    button.dataset.externalUrl = item.url;
+    button.addEventListener("click", () => {
+      window.location.href = item.url;
+    });
+    el.settingsExternalLinkList.appendChild(button);
+  });
 }
 
 function renderMemberDetail(data) {
